@@ -1,0 +1,5 @@
+{
+  "meta": { "model": "haiku-4.5" },
+  "tool_calls": [{ "name": "generate_report.py", "input": {} }],
+  "output": { "status": "draft" }
+}

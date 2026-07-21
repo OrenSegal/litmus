@@ -1,0 +1,14 @@
+{
+  "name": "litmus-skills",
+  "version": "0.1.0",
+  "description": "Red/green CI for prompt-ware. Test the behavior your skill's scripts can't reach — deterministic checks wrapped around self-graded model output.",
+  "bin": { "litmus-skills": "bin/install.js" },
+  "files": ["bin", "skills"],
+  "scripts": { "postinstall": "node ./bin/install.js || true" },
+  "keywords": ["claude-code", "opencode", "claude-skill", "testing", "eval", "regression", "verification"],
+  "author": "Oren Segal",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/OrenSegal/litmus.git" },
+  "homepage": "https://github.com/OrenSegal/litmus",
+  "engines": { "node": ">=16" }
+}

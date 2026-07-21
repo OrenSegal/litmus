@@ -1,0 +1,8 @@
+{
+  "id": "uses-finalize",
+  "input": "produce the report via the finalize pipeline",
+  "assert": [
+    { "must_run": "finalize.py" },
+    { "equals": { "path": "$.status", "value": "complete" } }
+  ]
+}
