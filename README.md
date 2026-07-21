@@ -10,15 +10,26 @@ Litmus pins golden tasks, runs them against a change, and returns a red/green di
 
 Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `signal-scout`'s hand-built `verify_sources.py`.
 
-## Status — M1 (this release)
+## Status
 
-The **pure engine + all deterministic assertions + a 38-test suite**, running fully offline: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact (produced by an adapter); the engine never calls a model, which is what makes it deterministic and testable.
+Full pipeline, **47 tests, all offline** — no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact; the engine never calls a model, which is what keeps it deterministic and testable. Live capture and judging go through the Claude CLI's own auth (still no API key).
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 38 passing, no deps
+python3 -m unittest discover -s tests -t .        # 47 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
+
+pip install litmus-ci                              # or install the `litmus` command
 ```
+
+| Milestone | Shipped |
+|---|---|
+| M1 engine | pure grader, 11 deterministic assertions, sample-based pass-rates, gate ratchet |
+| M2 capture + report | `claude-code` stream-json adapter (`litmus capture`), self-contained `--html` report |
+| M3 judge | anchored calibration + adversarial panel; INCONCLUSIVE-until-falsifiable |
+| M4 matrix | `litmus matrix` — case × model grid, cross-model regression detection |
+| M6 index | `litmus index` — the Hallucination Index leaderboard |
+| packaging | Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, CI dogfood |
 
 ## How it works
 
@@ -29,9 +40,12 @@ Suite ─ cases/*.json  +  runs/<case>/*.json (captured AgentRun samples)  +  ba
 ```
 
 ```bash
-litmus run   <suite>                    # evaluate, print red/green, exit 1 on any FAIL
-litmus gate  <suite> --baseline b.json  # diff vs baseline, exit 1 ONLY on regressions
-litmus bless <suite>                    # snapshot current result as baseline (won't bless a live failure)
+litmus run     <suite> [--html out.html]  # evaluate, print red/green, exit 1 on any FAIL
+litmus gate    <suite> --baseline b.json   # diff vs baseline, exit 1 ONLY on regressions
+litmus bless   <suite>                     # snapshot current result as baseline (won't bless a live failure)
+litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cross-model regressions
+litmus index   <suite> [<suite> ...]       # Hallucination Index leaderboard
+litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 ```
 
 Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
@@ -69,12 +83,11 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 
 Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout) — Litmus's first case study, porting `verify_sources.py`'s guarantees into a suite.
 
-## Roadmap
+## Next
 
-- **M2** — `claude-code` live adapter (`claude -p --output-format stream-json`) + HTML report
-- **M3** — anchored judge + adversarial panel (§6 guardrails)
-- **M4** — `litmus matrix` (model × skill-version heatmap — the "upgrade re-rolls the dice" answer)
-- **M6** — the **Hallucination Index**: a recurring public benchmark of shipped skills × models
+M1–M6 are in. Open threads: `agent-sdk` adapter, a hosted gate that runs the
+matrix on every PR, and a real public **Hallucination Index** run. Direction and
+moat: [`BUSINESS.md`](./BUSINESS.md).
 
 ## License
 
