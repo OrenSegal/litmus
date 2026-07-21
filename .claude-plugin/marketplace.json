@@ -1,0 +1,15 @@
+{
+  "name": "litmus",
+  "owner": { "name": "Oren Segal" },
+  "description": "Marketplace for the litmus plugin — red/green regression CI for skills and any agent claim.",
+  "plugins": [
+    {
+      "name": "litmus",
+      "source": "./",
+      "description": "Red/green CI for prompt-ware — test the behavior your skill's scripts can't.",
+      "version": "0.1.0",
+      "license": "MIT",
+      "keywords": ["testing", "eval", "regression", "skills", "ci", "verification"]
+    }
+  ]
+}
