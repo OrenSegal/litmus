@@ -2,9 +2,9 @@
 
 **Red/green CI for prompt-ware.** Test the behavior your scripts' unit tests can't reach.
 
-Skills, system prompts, and tool definitions are real software now — prose + schemas + scripts, shipped to other people's machines. The scripts get tests. The **prose that actually steers the model gets none.** So nobody can answer *"did editing SKILL.md make the agent better or worse?"* except by vibes — and every model upgrade silently re-rolls the dice on every installed skill.
+Skills, system prompts, and tool definitions are real software now: prose, schemas and scripts, shipped to other people's machines. The scripts get tests. The **prose that actually steers the model gets none.** So nobody can answer *"did editing SKILL.md make the agent better or worse?"* except by vibes, and every model upgrade silently re-rolls the dice on every installed skill.
 
-Litmus pins golden tasks, runs them against a change, and returns a red/green diff. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around self-graded model output, so a model can never rubber-stamp its own work green.
+Litmus pins golden tasks, runs them against a change, and returns a red/green diff. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green (when Litmus knows which model produced the run; see below).
 
 > **The load-bearing rule:** a green only ever comes from a check that *could have failed*. A judge (LLM-graded) verdict that can't be falsified against an anchor or a deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
 
@@ -19,7 +19,7 @@ git clone https://github.com/OrenSegal/litmus && cd litmus
 python3 -m unittest discover -s tests -t .        # 78 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
-pip install litmus-ci                              # or install the `litmus` command
+pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
 ```
 
 | Milestone | Shipped |
@@ -27,8 +27,9 @@ pip install litmus-ci                              # or install the `litmus` com
 | M1 engine | pure grader, 11 deterministic assertions, sample-based pass-rates, gate ratchet |
 | M2 capture + report | `claude-code` stream-json adapter (`litmus capture`), self-contained `--html` report |
 | M3 judge | anchored calibration (pass and fail anchors required), `panel: N` majority vote over repeated calls of one judge, `--judge claude` on the CLI; INCONCLUSIVE until falsifiable |
-| M4 matrix | `litmus matrix` — case × model grid, cross-model regression detection |
-| M6 index | `litmus index` — the Hallucination Index leaderboard |
+| M4 matrix | `litmus matrix`: case × model grid, cross-model regression detection |
+| M5 case study | `examples/signal-scout/` suite. Partial: it runs offline on captured runs, and per the spec it hasn't logged a real outcome yet |
+| M6 index (prototype) | `litmus index` ranks models across suites. Tested on fixtures only; no public Hallucination Index run exists yet |
 | packaging | Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, CI dogfood |
 
 ## How it works
@@ -44,7 +45,7 @@ litmus run     <suite> [--html out.html]  # evaluate, print red/green, exit 1 on
 litmus gate    <suite> --baseline b.json   # diff vs baseline, exit 1 ONLY on regressions
 litmus bless   <suite>                     # snapshot current result as baseline (won't bless a live failure)
 litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cross-model regressions
-litmus index   <suite> [<suite> ...]       # Hallucination Index leaderboard
+litmus index   <suite> [<suite> ...]       # rank models across suites (prototype)
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 ```
 
@@ -65,11 +66,11 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 | `equals` / `contains` / `matches` | deterministic value / substring / regex at a JSONPath |
 | `count` | cardinality at a JSONPath (`>=`, `<`, `==`, …) |
 | `budget` | cost / tokens / latency within envelope (missing telemetry → `INCONCLUSIVE`) |
-| `resolves` | every cited URL resolves — bot-wall-aware (`verify_sources.py` link check) |
+| `resolves` | every cited URL resolves, bot-wall-aware (`verify_sources.py` link check) |
 | `grounded` | cited claim's words actually appear on the fetched source, page-length-invariant |
 | `judge` | LLM-rubric. **`INCONCLUSIVE` unless you run with `--judge claude` (or pass a judge from Python), the judge model is not the model that produced the run, and the rubric has at least one pass and one fail anchor that the judge grades correctly** |
 
-`resolves`/`grounded` take an injectable `Fetcher`, so the whole engine — including grounding — runs offline in tests via a `DictFetcher`.
+`resolves`/`grounded` take an injectable `Fetcher`, so the whole engine, grounding included, runs offline in tests via a `DictFetcher`.
 
 ## Case file
 
@@ -85,11 +86,20 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 }
 ```
 
-Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout) — Litmus's first case study, porting `verify_sources.py`'s guarantees into a suite.
+Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout), Litmus's first case study, which ports `verify_sources.py`'s guarantees into a suite. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
+
+## Limitations
+
+- **Judge agreement with a human is not measured yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. That number needs a labelled set, which is the next piece of work.
+- **`panel: N` is not independent.** It repeats the same judge model and prompt N times, so it smooths sampling noise but shares every blind spot.
+- **The judge's answer is read from the first line of its reply.** A first line containing the word PASS counts as PASS. The prompt asks for a single word, but a chatty reply could be misread.
+- **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.
+- **One capture adapter.** `litmus capture` only speaks the Claude Code CLI's stream-json output.
+- **The index has never been run publicly.** It ranks whatever suites you hand it; there is no published leaderboard.
 
 ## Next
 
-M1–M6 are in. Open threads: `agent-sdk` adapter, a hosted gate that runs the
+M1-M4 are in, M5 is partial and M6 is a prototype. Open threads: `agent-sdk` adapter, a hosted gate that runs the
 matrix on every PR, a real public **Hallucination Index** run, and a panel of
 truly independent judges (today `panel: N` repeats the same judge and prompt).
 
