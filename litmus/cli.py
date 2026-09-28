@@ -135,15 +135,32 @@ def _calibrate(args: argparse.Namespace) -> int:
         print(f"litmus: cannot read {args.labels}: {exc.strerror or exc}", file=sys.stderr)
         return 2
     if args.judge_fn is not None:
-        args.warnings.extend(fill_judge(samples, args.judge_fn, rejudge=args.rejudge))
+        try:
+            fill_judge(samples, args.judge_fn, rejudge=args.rejudge, warnings=args.warnings)
+        except JudgeError as exc:
+            # Keep the verdicts already paid for: write what was judged so far.
+            if args.out:
+                write_samples(Path(args.out), samples)
+                print(f"litmus: judge failed, partial labels written to {args.out}", file=sys.stderr)
+            print(f"litmus: judge error: {exc}", file=sys.stderr)
+            return 2
         if args.out:
             write_samples(Path(args.out), samples)
-            print(f"judged labels → {args.out}\n")
+            print(f"judged labels → {args.out}", file=sys.stderr)
+    elif args.out or args.rejudge:
+        args.warnings.append("--out and --rejudge do nothing without --judge")
     result = calibrate(samples)
+    if result.unjudged and args.judge_fn is None:
+        args.warnings.append(f"{result.unjudged} row(s) have no judge verdict; pass --judge to fill them")
     print(json.dumps(result.to_json(), indent=2) if args.json else render_calibration(result))
     if args.min_kappa is not None:
-        if result.kappa is None or result.kappa < args.min_kappa:
-            print(f"\nkappa below --min-kappa {args.min_kappa}", file=sys.stderr)
+        if result.kappa is None:
+            print(f"\nkappa is undefined for this set, so --min-kappa {args.min_kappa} cannot pass",
+                  file=sys.stderr)
+            return 1
+        # Tolerance: kappa 0.4 on paper can compute as 0.39999..., which would fail --min-kappa 0.4.
+        if result.kappa < args.min_kappa - 1e-9:
+            print(f"\nkappa {result.kappa:.3f} is below --min-kappa {args.min_kappa}", file=sys.stderr)
             return 1
     return 0
 

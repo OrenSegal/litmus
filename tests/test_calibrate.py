@@ -13,6 +13,7 @@ from unittest import mock
 
 from litmus import cli
 from litmus.calibrate import CalibrationError, Sample, calibrate, fill_judge, load_samples
+from litmus.assertions import JudgeError
 from litmus.judge import ClaudeJudge, ScriptedJudge
 
 FAKE_CLAUDE = "/usr/local/bin/claude"
@@ -95,6 +96,27 @@ class FillJudgeTest(unittest.TestCase):
         self.assertEqual(len(warnings), 1)
 
 
+    def test_records_judge_model_and_warns_on_unknown_or_stale(self):
+        samples = _samples([("pass", None), ("pass", "fail")])
+        samples[1].extra["judge_model"] = "claude-opus-5-5"
+        warnings = fill_judge(samples, ScriptedJudge(lambda a, r: True, model="claude-sonnet-5"))
+        self.assertEqual(samples[0].extra["judge_model"], "claude-sonnet-5")
+        self.assertEqual(samples[1].judge, "fail")  # kept without --rejudge
+        self.assertTrue(any("2 row(s) with no `model`" in w for w in warnings))
+        self.assertTrue(any("different judge_model" in w for w in warnings))
+
+    def test_verdicts_before_a_judge_error_are_kept(self):
+        samples = _samples([("pass", None), ("pass", None), ("pass", None)])
+
+        def flaky(artifact, rubric):
+            if artifact == "a1":
+                raise JudgeError("boom")
+            return True
+
+        with self.assertRaises(JudgeError):
+            fill_judge(samples, ScriptedJudge(flaky, model="claude-sonnet-5"))
+        self.assertEqual([s.judge for s in samples], ["pass", None, None])
+
 class LoadTest(unittest.TestCase):
     def _load(self, rows):
         with tempfile.TemporaryDirectory() as d:
@@ -172,6 +194,64 @@ class CliTest(unittest.TestCase):
             rows = [json.loads(line) for line in out_path.read_text().splitlines()]
             self.assertEqual([r["judge"] for r in rows], ["fail", "pass"])
             self.assertEqual(rows[0]["note"], "keep me")
+
+    def test_min_kappa_passes_at_or_above_threshold(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "labels.jsonl"
+            # tp=1 fp=1 fn=0 tn=1: kappa 0.4
+            _write_jsonl(path, [
+                {"id": "a", "artifact": "x", "rubric": "r", "human": "fail", "judge": "fail"},
+                {"id": "b", "artifact": "y", "rubric": "r", "human": "pass", "judge": "fail"},
+                {"id": "c", "artifact": "z", "rubric": "r", "human": "pass", "judge": "pass"},
+            ])
+            self.assertEqual(self._run(["calibrate", str(path), "--min-kappa", "0.4"])[0], 0)
+            self.assertEqual(self._run(["calibrate", str(path), "--min-kappa", "0.3"])[0], 0)
+            self.assertEqual(self._run(["calibrate", str(path), "--min-kappa", "0.41"])[0], 1)
+
+    def test_min_kappa_fails_when_kappa_undefined(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "labels.jsonl"
+            _write_jsonl(path, [{"id": "a", "artifact": "x", "rubric": "r", "human": "pass"}])
+            code, _, err = self._run(["calibrate", str(path), "--min-kappa", "-1"])
+            self.assertEqual(code, 1)
+            self.assertIn("undefined", err)
+            self.assertIn("pass --judge", err)
+
+    def test_json_stdout_stays_parseable_with_out(self):
+        with tempfile.TemporaryDirectory() as d:
+            path, out_path = Path(d) / "labels.jsonl", Path(d) / "judged.jsonl"
+            _write_jsonl(path, [{"id": "a", "artifact": "bad", "rubric": "r", "human": "fail"}])
+            with mock.patch("litmus.judge.shutil.which", return_value=FAKE_CLAUDE), \
+                 mock.patch.object(ClaudeJudge, "__call__", autospec=True,
+                                   side_effect=lambda self, artifact, rubric: False):
+                code, out, err = self._run(["calibrate", str(path), "--judge", "claude",
+                                            "--judge-model", "claude-sonnet-5",
+                                            "--out", str(out_path), "--json"])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(out)["confusion"]["tp"], 1)
+            self.assertIn("judged labels", err)
+
+    def test_judge_error_writes_partial_out(self):
+        with tempfile.TemporaryDirectory() as d:
+            path, out_path = Path(d) / "labels.jsonl", Path(d) / "judged.jsonl"
+            _write_jsonl(path, [
+                {"id": "a", "artifact": "ok", "rubric": "r", "human": "pass"},
+                {"id": "b", "artifact": "boom", "rubric": "r", "human": "pass"},
+            ])
+
+            def judge(self, artifact, rubric):
+                if artifact == "boom":
+                    raise JudgeError("CLI exited 1")
+                return True
+
+            with mock.patch("litmus.judge.shutil.which", return_value=FAKE_CLAUDE), \
+                 mock.patch.object(ClaudeJudge, "__call__", autospec=True, side_effect=judge):
+                code, _, err = self._run(["calibrate", str(path), "--judge", "claude",
+                                          "--judge-model", "claude-sonnet-5", "--out", str(out_path)])
+            self.assertEqual(code, 2)
+            self.assertIn("partial labels written", err)
+            rows = [json.loads(line) for line in out_path.read_text().splitlines()]
+            self.assertEqual([r.get("judge") for r in rows], ["pass", None])
 
     def test_bad_file_exits_2(self):
         with tempfile.TemporaryDirectory() as d:

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from .assertions import same_model
+from .assertions import normalize_model_id, same_model
 
 VERDICTS = ("pass", "fail")
 _FIELDS = ("id", "artifact", "rubric", "human", "judge", "model")
@@ -103,23 +103,41 @@ def write_samples(path: Path, samples: List[Sample]) -> None:
 
 
 def fill_judge(samples: List[Sample], judge: Callable[[Any, str], bool],
-               rejudge: bool = False) -> List[str]:
-    """Set `judge` on each sample that lacks one (all of them if `rejudge`).
+               rejudge: bool = False, warnings: Optional[List[str]] = None) -> List[str]:
+    """Set `judge` on each sample that lacks one (all of them if `rejudge`),
+    and record the judge's model as `judge_model` on each row it grades.
 
     A sample whose producing model is the judge's model is left unjudged, so
     it drops out of the metrics (no self-grading), even if it already had a
-    verdict. Returns one warning per skipped sample.
+    verdict. Warnings go into `warnings` as they happen (so a caller still has
+    them if the judge raises partway through) and the list is returned.
+    Samples are updated in place, so the ones judged before an exception keep
+    their verdicts.
     """
+    warnings = [] if warnings is None else warnings
     judge_model = getattr(judge, "model", None)
-    warnings: List[str] = []
+    if normalize_model_id(judge_model) is None:
+        warnings.append("no-self-grading check skipped: the judge does not report a model")
+    unknown, stale = 0, 0
     for s in samples:
-        if same_model(judge_model, s.model):
+        if normalize_model_id(s.model) is None:
+            unknown += 1
+        elif same_model(judge_model, s.model):
             s.judge = None
             warnings.append(f"{s.id}: not judged, the judge model {judge_model!r} produced it ({s.model!r})")
             continue
         if s.judge is not None and not rejudge:
+            previous = s.extra.get("judge_model")
+            if previous is not None and normalize_model_id(previous) != normalize_model_id(judge_model):
+                stale += 1
             continue
         s.judge = "pass" if judge(s.artifact, s.rubric) else "fail"
+        if judge_model is not None:
+            s.extra["judge_model"] = judge_model
+    if unknown and normalize_model_id(judge_model) is not None:
+        warnings.append(f"no-self-grading check skipped for {unknown} row(s) with no `model` field")
+    if stale:
+        warnings.append(f"{stale} row(s) keep a verdict from a different judge_model; pass --rejudge to regrade them")
     return warnings
 
 

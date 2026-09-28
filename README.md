@@ -12,11 +12,11 @@ Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `si
 
 ## Status
 
-Full pipeline, **96 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
+Full pipeline, **102 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 96 passing, no deps
+python3 -m unittest discover -s tests -t .        # 102 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
 pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)

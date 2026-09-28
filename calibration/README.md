@@ -13,8 +13,11 @@ JSONL, one sample per line:
 - `artifact`: the output being graded, a string or any JSON value. The judge sees exactly this.
 - `rubric`: one binary criterion. If one output needs three criteria, that's three rows.
 - `human`: `pass` or `fail`, from the human labeler.
-- `model` (optional): the model that produced the artifact. Rows produced by the judge's own model are left unjudged and excluded, the same no-self-grading rule the suites use.
+- `model` (optional): the model that produced the artifact. Rows produced by the judge's own model are left unjudged and excluded, the same no-self-grading rule the suites use. Rows without it can't be checked, and calibrate warns with a count of them.
 - `judge` (optional): the judge's verdict. `--judge claude` fills it in; rows that already have one are kept unless you pass `--rejudge`.
+- `judge_model`: written by `--judge` on each row it grades. If a kept verdict came from a different model than the current `--judge-model`, calibrate warns, since the metrics would mix two judges.
+
+`id` is compared as a string, so `1` and `"1"` count as duplicates, and `--out` writes ids back as strings. Any other fields are written back unchanged. If the judge fails partway through, `--out` still gets every verdict made before the failure, so a rerun only pays for the rest.
 
 ## Protocol
 
