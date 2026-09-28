@@ -324,7 +324,7 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
         expect = anchor["expect"] == "pass"
         if ctx.judge(art, rubric) != expect:
             return Verdict.inconclusive("judge", f"judge failed anchor calibration on {anchor['output']}")
-    # §6 guardrail 2: adversarial panel, ties default to FAIL.
+    # §6 guardrail 2: judge panel, ties default to FAIL.
     panel = int(config.get("panel", 1))
     votes = [ctx.judge(run.output, rubric) for _ in range(panel)]
     if sum(votes) * 2 > panel:
