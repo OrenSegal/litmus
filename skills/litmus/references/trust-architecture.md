@@ -50,7 +50,10 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    alias like `haiku` matches every haiku. If the producing model is unknown
    (no `meta.model`, or `default`, and no `target.model`), the run is graded as
    before and Litmus prints one warning to stderr per command. Tag your runs
-   with `meta.model` so the check can run.
+   with `meta.model` so the check can run. The exact normalization rule is in
+   `LITMUS_SPEC.md` §6. From Python, a judge callable without a `model`
+   attribute skips the check (graded, with a warning), and warnings are
+   collected on `EvalContext.warnings`; the CLI is what prints them.
 
 ## Wiring a judge
 

@@ -341,7 +341,7 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 _UNKNOWN_MODELS = {"", "default", "unknown", "none", "null"}
 _DATE_SUFFIX = re.compile(r"[-@]\d{8}$")
 _BEDROCK_VERSION = re.compile(r"-v\d+(:\d+)?$")
-_BEDROCK_PREFIX = re.compile(r"^(?:[a-z]{2,4}\.)?anthropic\.")
+_BEDROCK_PREFIX = re.compile(r"^(?:[a-z]+\.)?anthropic\.")
 
 
 def normalize_model_id(model: Any) -> Optional[str]:

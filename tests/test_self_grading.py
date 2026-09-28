@@ -120,7 +120,8 @@ class TestSelfGradingEngine(unittest.TestCase):
 class TestModelIdNormalization(unittest.TestCase):
     def test_spellings_of_one_model_match(self):
         for other in ("claude-haiku-4-5", "haiku-4.5", "anthropic/claude-haiku-4-5",
-                      "us.anthropic.claude-haiku-4-5-20251001-v1:0", "claude-haiku-4-5@20251001",
+                      "us.anthropic.claude-haiku-4-5-20251001-v1:0", "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+                      "claude-haiku-4-5@20251001",
                       "Claude-Haiku-4-5-latest", "haiku"):
             self.assertTrue(A.same_model("claude-haiku-4-5-20251001", other), other)
         self.assertTrue(A.same_model("claude-3-5-sonnet-20241022", "sonnet-3.5"))
@@ -142,6 +143,18 @@ class TestCaptureRecordsModel(unittest.TestCase):
             {"type": "result", "subtype": "success", "result": "{}"},
         ])
         self.assertEqual(run.meta.get("model"), "claude-sonnet-4-5-20250929")
+
+    def test_capture_keeps_an_explicit_model_tag(self):
+        # `matrix --reference opus-4.8` matches on the --model tag, so it must win
+        from litmus.adapters import claude_code
+        stream = json.dumps({"type": "system", "subtype": "init", "model": "claude-opus-4-8-20260101"})
+        done = mock.Mock(stdout=stream + "\n", returncode=0)
+        with mock.patch.object(claude_code.subprocess, "run", return_value=done):
+            tagged = claude_code.capture("p", model="opus-4.8")
+            untagged = claude_code.capture("p")
+        self.assertEqual(tagged.meta["model"], "opus-4.8")
+        self.assertEqual(tagged.meta["model_id"], "claude-opus-4-8-20260101")
+        self.assertEqual(untagged.meta["model"], "claude-opus-4-8-20260101")
 
 
 class TestSelfGradingCli(unittest.TestCase):

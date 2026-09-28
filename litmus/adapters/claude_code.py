@@ -125,6 +125,14 @@ def capture(
         except json.JSONDecodeError:
             continue
     run = parse_stream(events)
-    run.meta.setdefault("model", model or "default")
+    # An explicit --model is the tag `matrix` groups and filters on, so it wins.
+    # The id the CLI reported is kept as meta.model_id. With no --model, the
+    # reported id becomes meta.model ("default" only if the CLI reported none).
+    reported = run.meta.get("model")
+    if reported:
+        run.meta["model_id"] = reported
+    if model:
+        run.meta["model"] = model
+    run.meta.setdefault("model", "default")
     run.meta.setdefault("exit_code", proc.returncode)
     return run
