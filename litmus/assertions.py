@@ -40,6 +40,16 @@ class EvalContext:
     base_dir: Path = field(default_factory=lambda: Path("."))
     judge: Optional[JudgeFn] = None
     timeout: int = 10
+    # The suite/case `target.model`. Fallback for the model that produced a run
+    # when the run itself has no `meta.model` (see `producing_model`).
+    target_model: Optional[str] = None
+    # Messages for the caller to show once (the CLI prints them to stderr).
+    # Shared by reference across per-case copies of the context, deduplicated.
+    warnings: List[str] = field(default_factory=list)
+
+    def warn(self, message: str) -> None:
+        if message not in self.warnings:
+            self.warnings.append(message)
 
 
 _REGISTRY: Dict[str, Callable[[Any, AgentRun, EvalContext], Verdict]] = {}
@@ -299,6 +309,13 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
             "judge needs at least one 'pass' and one 'fail' anchor to be calibrated; "
             "an uncalibrated judge verdict is INCONCLUSIVE, not PASS",
         )
+    # §6 guardrail 4: no self-grading. Checked before any judge call, so a judge
+    # that is the model under test never sees the anchors or the real output.
+    same, reason = _self_grading(run, ctx)
+    if same:
+        return Verdict.inconclusive("judge", reason)
+    if reason:
+        ctx.warn(reason)
     # If the judge misgrades a known anchor, its verdict on the real artifact is void.
     import json
 
@@ -313,3 +330,111 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     if sum(votes) * 2 > panel:
         return Verdict.passed("judge", f"panel {sum(votes)}/{panel} after anchor calibration")
     return Verdict.failed("judge", f"panel {sum(votes)}/{panel} (ties default to fail)")
+
+
+# --------------------------------------------------------------------------- #
+# no self-grading (§6 guardrail 4): the judge model must not be the model that
+# produced the run. Pure string comparison on normalized model ids.
+# --------------------------------------------------------------------------- #
+# Values that name no model. `litmus capture` writes "default" when it was not
+# told which model to use.
+_UNKNOWN_MODELS = {"", "default", "unknown", "none", "null"}
+_DATE_SUFFIX = re.compile(r"[-@]\d{8}$")
+_BEDROCK_VERSION = re.compile(r"-v\d+(:\d+)?$")
+_BEDROCK_PREFIX = re.compile(r"^(?:[a-z]+\.)?anthropic\.")
+
+
+def normalize_model_id(model: Any) -> Optional[str]:
+    """Reduce a model id to a comparable key, or None if it names no model.
+
+    Rules, applied in order:
+      1. lowercase and trim; "", "default", "unknown", "none" and "null" mean unknown
+      2. keep only the part after the last "/" (drops "anthropic/", "models/")
+      3. drop a Bedrock "<region>.anthropic." or "anthropic." prefix
+      4. drop a Bedrock "-vN" or "-vN:M" suffix, then "-latest"
+      5. drop a date suffix "-YYYYMMDD" or "@YYYYMMDD"
+      6. turn "." into "-" and drop a leading "claude-"
+      7. put the name words before the version numbers, so the older
+         "3-5-sonnet" order equals "sonnet-3-5"
+
+    So "claude-haiku-4-5-20251001", "anthropic/claude-haiku-4-5",
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0" and "haiku-4.5" all become
+    "haiku-4-5". A bare alias such as "haiku" stays "haiku".
+    """
+    if model is None:
+        return None
+    m = str(model).strip().lower()
+    if m in _UNKNOWN_MODELS:
+        return None
+    m = m.rsplit("/", 1)[-1]
+    m = _BEDROCK_PREFIX.sub("", m)
+    m = _BEDROCK_VERSION.sub("", m)
+    if m.endswith("-latest"):
+        m = m[: -len("-latest")]
+    m = _DATE_SUFFIX.sub("", m)
+    m = m.replace(".", "-")
+    if m.startswith("claude-"):
+        m = m[len("claude-"):]
+    parts = [p for p in m.split("-") if p]
+    words = [p for p in parts if not p.isdigit()]
+    numbers = [p for p in parts if p.isdigit()]
+    key = "-".join(words + numbers)
+    return key or None
+
+
+def same_model(a: Any, b: Any) -> bool:
+    """True if two model ids name the same model after `normalize_model_id`.
+
+    A bare alias with no version number ("haiku", "sonnet", "opus") matches any
+    model whose normalized id contains that word, because the alias can resolve
+    to any of them. Refusing to grade is the safe side of that ambiguity.
+    Unknown ids never match.
+    """
+    na, nb = normalize_model_id(a), normalize_model_id(b)
+    if na is None or nb is None:
+        return False
+    if na == nb:
+        return True
+    for alias, other in ((na, nb), (nb, na)):
+        if not any(ch.isdigit() for ch in alias) and "-" not in alias:
+            if alias in other.split("-"):
+                return True
+    return False
+
+
+def producing_model(run: AgentRun, ctx: EvalContext) -> Optional[str]:
+    """The model that produced `run`: its `meta.model`, else the suite or case
+    `target.model`. None if neither names a model."""
+    for candidate in (run.meta.get("model"), ctx.target_model):
+        if normalize_model_id(candidate) is not None:
+            return str(candidate)
+    return None
+
+
+def _self_grading(run: AgentRun, ctx: EvalContext):
+    """Return (is_self_grading, message).
+
+    (True, reason) when the judge model is the producing model. (False, warning)
+    when either side is unknown, so the check could not run. (False, "") when
+    the two are known and differ.
+    """
+    judge_model = getattr(ctx.judge, "model", None)
+    produced_by = producing_model(run, ctx)
+    if normalize_model_id(judge_model) is None:
+        return False, (
+            "no-self-grading check skipped: the judge does not report a model, so "
+            "Litmus cannot tell whether it produced the runs it grades"
+        )
+    if produced_by is None:
+        return False, (
+            "no-self-grading check skipped: some graded runs have no meta.model and "
+            "the suite has no target.model, so Litmus cannot tell whether the judge "
+            f"model ({judge_model}) produced them"
+        )
+    if same_model(judge_model, produced_by):
+        return True, (
+            f"self-grading: judge model {judge_model!r} is the model that produced this "
+            f"run ({produced_by!r}), so it may not grade it. Use a different --judge-model. "
+            "Not graded, so INCONCLUSIVE, not PASS"
+        )
+    return False, ""

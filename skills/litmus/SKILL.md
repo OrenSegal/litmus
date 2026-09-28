@@ -61,7 +61,11 @@ pip install litmus-ci        # provides the `litmus` command
    logged in or given `ANTHROPIC_API_KEY`; if it can't answer, the command
    exits 2 with the reason instead of reporting INCONCLUSIVE. Pass the same
    `--judge` setting to `bless` and `gate`, or judge assertions blessed as
-   PASS will show up as regressions.
+   PASS will show up as regressions. The judge never grades runs produced by
+   its own model: if a run's `meta.model` (or the suite `target.model`) is the
+   judge model, that judge assertion is INCONCLUSIVE and no call is made, so
+   pick a `--judge-model` that differs from the model under test. Runs with no
+   known model are graded, with one warning on stderr.
 
 4. **Baseline + gate** for CI — the ratchet only breaks the build on a
    *regression*, never on a fix or a new green case:

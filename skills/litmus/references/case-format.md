@@ -51,6 +51,12 @@ except whatever your assertions read.
 ```
 
 `meta.model` is what `litmus matrix` groups by — tag every run with it.
+It is also how the judge's no-self-grading check knows who produced the run: a
+`judge` assertion is INCONCLUSIVE, with no judge call, when `meta.model` names
+the judge model. Without `meta.model` the suite or case `target.model` is used;
+with neither (or the placeholder `default`), the run is graded and Litmus prints
+one warning. `litmus capture` sets `meta.model` to your `--model`, or, without
+one, to the model the Claude CLI reports (kept as `meta.model_id` either way).
 
 ## JSONPath selectors
 
