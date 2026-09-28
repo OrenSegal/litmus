@@ -52,7 +52,16 @@ pip install litmus-ci        # provides the `litmus` command
    ```bash
    litmus run suite/                 # red/green table, exit 1 on any FAIL
    litmus run suite/ --html out.html # + self-contained HTML report
+   litmus run suite/ --judge claude  # also grade `judge` assertions via the Claude CLI
    ```
+
+   `--judge claude` works on `run`, `gate`, `bless`, `matrix` and `index`.
+   `--judge-model <id>` picks the judge model (default
+   `claude-haiku-4-5-20251001`). The Claude CLI must be installed and either
+   logged in or given `ANTHROPIC_API_KEY`; if it can't answer, the command
+   exits 2 with the reason instead of reporting INCONCLUSIVE. Pass the same
+   `--judge` setting to `bless` and `gate`, or judge assertions blessed as
+   PASS will show up as regressions.
 
 4. **Baseline + gate** for CI — the ratchet only breaks the build on a
    *regression*, never on a fix or a new green case:
@@ -75,9 +84,10 @@ pip install litmus-ci        # provides the `litmus` command
   `must_run`, `must_not`, `schema`, `equals` on a typed field, `resolves`,
   `grounded` — not brittle full-text matches. Set `samples: N` for anything
   flaky-prone; Litmus reports pass-rates and flags flaky assertions.
-- **A `judge` with no judge configured is INCONCLUSIVE, by design.** Don't
-  "fix" it by loosening — either wire an anchored judge (trust-architecture.md)
-  or express the check deterministically.
+- **A `judge` assertion is INCONCLUSIVE unless you pass `--judge claude`, by
+  design.** It also needs at least one pass and one fail anchor. Don't "fix" an
+  INCONCLUSIVE by loosening: add anchors and run with `--judge claude`
+  (trust-architecture.md), or express the check deterministically.
 - **Never let `bless` paper over a real failure.** It refuses to snapshot a
   live deterministic FAIL; fix the case instead.
 
