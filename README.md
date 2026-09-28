@@ -12,11 +12,11 @@ Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `si
 
 ## Status
 
-Full pipeline, **78 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Two things do call a model, and only when you ask: `litmus capture`, and `judge` assertions when you pass `--judge claude`. Both run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
+Full pipeline, **92 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Two things do call a model, and only when you ask: `litmus capture`, and `judge` assertions when you pass `--judge claude`. Both run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 78 passing, no deps
+python3 -m unittest discover -s tests -t .        # 92 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
 pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
@@ -47,9 +47,10 @@ litmus bless   <suite>                     # snapshot current result as baseline
 litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cross-model regressions
 litmus index   <suite> [<suite> ...]       # rank models across suites (prototype)
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
+litmus calibrate labels.jsonl              # judge vs your pass/fail labels: recall, precision, kappa
 ```
 
-`run`, `gate`, `bless`, `matrix` and `index` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
+`run`, `gate`, `bless`, `matrix`, `index` and `calibrate` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
 
 No self-grading is enforced: a judge never grades a run its own model produced. The producing model is the run's `meta.model`, or the suite or case `target.model` if the run has none. If it is the same model as `--judge-model` (compared after normalizing ids, so `claude-haiku-4-5-20251001` and `haiku-4.5` match, and a bare alias like `haiku` matches every haiku), the judge is not called and that assertion is `INCONCLUSIVE`. Note that the default judge is Haiku 4.5, so pass a different `--judge-model` when Haiku 4.5 is the model under test. If the producing model is unknown, the run is graded and one warning goes to stderr per command. The exact rule is in [`LITMUS_SPEC.md`](./LITMUS_SPEC.md) §6.
 
@@ -90,7 +91,7 @@ Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`
 
 ## Limitations
 
-- **Judge agreement with a human is not measured yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. That number needs a labelled set, which is the next piece of work.
+- **Judge agreement with a human has no published number yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. `litmus calibrate` computes that (recall, precision and Cohen's kappa against your labels; protocol in [`calibration/`](./calibration)), but no labeled set has been run and published.
 - **`panel: N` is not independent.** It repeats the same judge model and prompt N times, so it smooths sampling noise but shares every blind spot.
 - **The judge's answer is read from the first line of its reply.** A first line containing the word PASS counts as PASS. The prompt asks for a single word, but a chatty reply could be misread.
 - **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.

@@ -6,9 +6,10 @@
     litmus matrix <suite> [--models a,b]      # case x model grid across model-tagged runs
     litmus index  <suite> [<suite> ...]       # Hallucination Index leaderboard
     litmus capture "<prompt>" --out run.json  # capture a live AgentRun via the Claude CLI
+    litmus calibrate <labels.jsonl>           # judge vs human labels: recall, precision, kappa
     litmus version
 
-run, gate, bless, matrix and index also take `--judge claude` (and optionally
+run, gate, bless, matrix, index and calibrate also take `--judge claude` (and optionally
 `--judge-model <id>`) to grade `judge` assertions with the Claude CLI. Without
 `--judge`, no judge is built, nothing is sent to a model, and every `judge`
 assertion is INCONCLUSIVE. If a requested judge can't run, the command prints
@@ -26,6 +27,7 @@ from pathlib import Path
 
 from . import __version__
 from .assertions import EvalContext, JudgeError
+from .calibrate import CalibrationError, calibrate, fill_judge, load_samples, render_calibration, write_samples
 from .gate import can_bless, diff, load_baseline, write_baseline
 from .index import IndexEntry, render_index
 from .judge import DEFAULT_JUDGE_MODEL, ClaudeJudge
@@ -123,6 +125,26 @@ def _capture(args: argparse.Namespace) -> int:
     return 0
 
 
+def _calibrate(args: argparse.Namespace) -> int:
+    try:
+        samples = load_samples(Path(args.labels))
+    except CalibrationError as exc:
+        print(f"litmus: {exc}", file=sys.stderr)
+        return 2
+    if args.judge_fn is not None:
+        args.warnings.extend(fill_judge(samples, args.judge_fn, rejudge=args.rejudge))
+        if args.out:
+            write_samples(Path(args.out), samples)
+            print(f"judged labels → {args.out}\n")
+    result = calibrate(samples)
+    print(json.dumps(result.to_json(), indent=2) if args.json else render_calibration(result))
+    if args.min_kappa is not None:
+        if result.kappa is None or result.kappa < args.min_kappa:
+            print(f"\nkappa below --min-kappa {args.min_kappa}", file=sys.stderr)
+            return 1
+    return 0
+
+
 def _gate(args: argparse.Namespace) -> int:
     suite_dir = Path(args.suite)
     result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
@@ -200,6 +222,15 @@ def main(argv=None) -> int:
     p_cap.add_argument("--cwd", help="working dir the CLI resolves skills from")
     p_cap.add_argument("--out", help="write the AgentRun JSON here (default: stdout)")
     p_cap.set_defaults(func=_capture)
+
+    p_cal = sub.add_parser("calibrate", parents=[judging],
+                           help="measure judge agreement with human pass/fail labels")
+    p_cal.add_argument("labels", help="JSONL: {id, artifact, rubric, human, judge?, model?} per line")
+    p_cal.add_argument("--out", help="with --judge, write the labels plus judge verdicts here")
+    p_cal.add_argument("--rejudge", action="store_true", help="with --judge, re-grade rows that already have a verdict")
+    p_cal.add_argument("--min-kappa", type=float, help="exit 1 if Cohen's kappa is below this")
+    p_cal.add_argument("--json", action="store_true", help="print the metrics as JSON")
+    p_cal.set_defaults(func=_calibrate)
 
     args = parser.parse_args(argv)
     if getattr(args, "judge_model", None) and not args.judge:
