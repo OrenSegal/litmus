@@ -87,6 +87,13 @@ class FillJudgeTest(unittest.TestCase):
         self.assertEqual(len(warnings), 1)
         self.assertIn("s0", warnings[0])
 
+    def test_existing_verdict_from_judge_model_is_dropped(self):
+        samples = _samples([("pass", "pass")])
+        samples[0].model = "claude-haiku-4-5-20251001"
+        warnings = fill_judge(samples, ScriptedJudge(lambda a, r: True, model="haiku-4.5"))
+        self.assertIsNone(samples[0].judge)
+        self.assertEqual(len(warnings), 1)
+
 
 class LoadTest(unittest.TestCase):
     def _load(self, rows):
@@ -112,6 +119,11 @@ class LoadTest(unittest.TestCase):
         row = {"id": "a", "artifact": "x", "rubric": "r", "human": "pass"}
         with self.assertRaisesRegex(CalibrationError, "duplicate"):
             self._load([row, row])
+
+    def test_rejects_non_string_rubric(self):
+        for rubric in (None, "", 3):
+            with self.assertRaisesRegex(CalibrationError, "rubric must be a non-empty string"):
+                self._load([{"id": "a", "artifact": "x", "rubric": rubric, "human": "pass"}])
 
     def test_rejects_bad_json(self):
         with self.assertRaisesRegex(CalibrationError, ":1: not valid JSON"):
@@ -147,7 +159,7 @@ class CliTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path, out_path = Path(d) / "labels.jsonl", Path(d) / "judged.jsonl"
             _write_jsonl(path, [
-                {"id": "a", "artifact": "bad", "rubric": "r", "human": "fail"},
+                {"id": "a", "artifact": "bad", "rubric": "r", "human": "fail", "note": "keep me"},
                 {"id": "b", "artifact": "good", "rubric": "r", "human": "pass"},
             ])
             with mock.patch("litmus.judge.shutil.which", return_value=FAKE_CLAUDE), \
@@ -157,8 +169,9 @@ class CliTest(unittest.TestCase):
                                           "--judge-model", "claude-sonnet-5", "--out", str(out_path)])
             self.assertEqual(code, 0)
             self.assertIn("kappa      1.000", out)
-            judged = [json.loads(line)["judge"] for line in out_path.read_text().splitlines()]
-            self.assertEqual(judged, ["fail", "pass"])
+            rows = [json.loads(line) for line in out_path.read_text().splitlines()]
+            self.assertEqual([r["judge"] for r in rows], ["fail", "pass"])
+            self.assertEqual(rows[0]["note"], "keep me")
 
     def test_bad_file_exits_2(self):
         with tempfile.TemporaryDirectory() as d:
@@ -167,6 +180,16 @@ class CliTest(unittest.TestCase):
             code, _, err = self._run(["calibrate", str(path)])
             self.assertEqual(code, 2)
             self.assertIn("missing 'artifact'", err)
+
+    def test_missing_file_exits_2(self):
+        code, _, err = self._run(["calibrate", "/nonexistent/labels.jsonl"])
+        self.assertEqual(code, 2)
+        self.assertIn("cannot read", err)
+
+    def test_min_kappa_rejects_nan(self):
+        for value in ("nan", "inf", "2"):
+            with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                cli.main(["calibrate", "x.jsonl", "--min-kappa", value])
 
 
 if __name__ == "__main__":

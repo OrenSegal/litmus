@@ -27,6 +27,7 @@ from typing import Any, Callable, Dict, List, Optional
 from .assertions import same_model
 
 VERDICTS = ("pass", "fail")
+_FIELDS = ("id", "artifact", "rubric", "human", "judge", "model")
 
 
 class CalibrationError(ValueError):
@@ -41,10 +42,12 @@ class Sample:
     human: str
     judge: Optional[str] = None
     model: Optional[str] = None
+    # Any other fields in the row (a rationale, a source), kept so `--out` writes them back.
+    extra: Dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> Dict[str, Any]:
         row: Dict[str, Any] = {"id": self.id, "artifact": self.artifact, "rubric": self.rubric,
-                               "human": self.human}
+                               "human": self.human, **self.extra}
         if self.judge is not None:
             row["judge"] = self.judge
         if self.model is not None:
@@ -76,6 +79,8 @@ def load_samples(path: Path) -> List[Sample]:
         for key in ("id", "artifact", "rubric", "human"):
             if key not in row:
                 raise CalibrationError(f"{where}: missing {key!r}")
+        if not isinstance(row["rubric"], str) or not row["rubric"].strip():
+            raise CalibrationError(f"{where}: rubric must be a non-empty string")
         sid = str(row["id"])
         if sid in seen:
             raise CalibrationError(f"{where}: duplicate id {sid!r}")
@@ -83,10 +88,11 @@ def load_samples(path: Path) -> List[Sample]:
         samples.append(Sample(
             id=sid,
             artifact=row["artifact"],
-            rubric=str(row["rubric"]),
+            rubric=row["rubric"],
             human=_verdict(row["human"], f"{where} human", required=True),
             judge=_verdict(row.get("judge"), f"{where} judge", required=False),
             model=row.get("model"),
+            extra={k: v for k, v in row.items() if k not in _FIELDS},
         ))
     return samples
 
@@ -101,17 +107,17 @@ def fill_judge(samples: List[Sample], judge: Callable[[Any, str], bool],
     """Set `judge` on each sample that lacks one (all of them if `rejudge`).
 
     A sample whose producing model is the judge's model is left unjudged, so
-    it drops out of the metrics (no self-grading). Returns one warning per
-    skipped sample.
+    it drops out of the metrics (no self-grading), even if it already had a
+    verdict. Returns one warning per skipped sample.
     """
     judge_model = getattr(judge, "model", None)
     warnings: List[str] = []
     for s in samples:
-        if s.judge is not None and not rejudge:
-            continue
         if same_model(judge_model, s.model):
             s.judge = None
             warnings.append(f"{s.id}: not judged, the judge model {judge_model!r} produced it ({s.model!r})")
+            continue
+        if s.judge is not None and not rejudge:
             continue
         s.judge = "pass" if judge(s.artifact, s.rubric) else "fail"
     return warnings

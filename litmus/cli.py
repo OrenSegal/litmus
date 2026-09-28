@@ -131,6 +131,9 @@ def _calibrate(args: argparse.Namespace) -> int:
     except CalibrationError as exc:
         print(f"litmus: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        print(f"litmus: cannot read {args.labels}: {exc.strerror or exc}", file=sys.stderr)
+        return 2
     if args.judge_fn is not None:
         args.warnings.extend(fill_judge(samples, args.judge_fn, rejudge=args.rejudge))
         if args.out:
@@ -143,6 +146,16 @@ def _calibrate(args: argparse.Namespace) -> int:
             print(f"\nkappa below --min-kappa {args.min_kappa}", file=sys.stderr)
             return 1
     return 0
+
+
+def _kappa_threshold(value: str) -> float:
+    try:
+        threshold = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a number: {value!r}")
+    if not -1.0 <= threshold <= 1.0:  # also rejects nan and inf
+        raise argparse.ArgumentTypeError("must be between -1 and 1")
+    return threshold
 
 
 def _gate(args: argparse.Namespace) -> int:
@@ -228,7 +241,7 @@ def main(argv=None) -> int:
     p_cal.add_argument("labels", help="JSONL: {id, artifact, rubric, human, judge?, model?} per line")
     p_cal.add_argument("--out", help="with --judge, write the labels plus judge verdicts here")
     p_cal.add_argument("--rejudge", action="store_true", help="with --judge, re-grade rows that already have a verdict")
-    p_cal.add_argument("--min-kappa", type=float, help="exit 1 if Cohen's kappa is below this")
+    p_cal.add_argument("--min-kappa", type=_kappa_threshold, help="exit 1 if Cohen's kappa is below this")
     p_cal.add_argument("--json", action="store_true", help="print the metrics as JSON")
     p_cal.set_defaults(func=_calibrate)
 
