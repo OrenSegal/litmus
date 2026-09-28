@@ -4,7 +4,7 @@
 
 Skills, system prompts, and tool definitions are real software now: prose, schemas and scripts, shipped to other people's machines. The scripts get tests. The **prose that actually steers the model gets none.** So nobody can answer *"did editing SKILL.md make the agent better or worse?"* except by vibes, and every model upgrade silently re-rolls the dice on every installed skill.
 
-Litmus pins golden tasks, runs them against a change, and returns a red/green diff. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green.
+Litmus pins golden tasks, runs them against a change, and returns a red/green diff. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green (when Litmus knows which model produced the run; see below).
 
 > **The load-bearing rule:** a green only ever comes from a check that *could have failed*. A judge (LLM-graded) verdict that can't be falsified against an anchor or a deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
 
