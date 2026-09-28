@@ -18,9 +18,12 @@ import re
 import subprocess
 from typing import Any, Callable, Dict, Tuple
 
-_JUDGE_PROMPT = """You are a strict evaluator. Judge ONLY whether the artifact \
-satisfies the criterion. Do not consider who produced it. Answer with a single \
-word on the first line: PASS or FAIL.
+_JUDGE_PROMPT = """You are a reviewer trying to refute the claim that the \
+artifact satisfies the criterion. Look for a concrete way the artifact violates \
+the criterion. If you find one, answer FAIL. Answer PASS only if you looked and \
+could not find any violation. Judge ONLY the artifact against the criterion; do \
+not consider who produced it. Answer with a single word on the first line: \
+PASS or FAIL.
 
 CRITERION:
 {rubric}

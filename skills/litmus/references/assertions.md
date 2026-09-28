@@ -27,9 +27,9 @@ bot-walled platform (reddit/x/linkedin/…) as `INCONCLUSIVE`, never a dead link
 
 ## Judge (LLM-graded)
 
-| `judge` | `{rubric, anchors?, panel?}` |
+| `judge` | `{rubric, anchors, panel?}` (anchors required: at least one `expect: pass` and one `expect: fail`) |
 
-Returns `INCONCLUSIVE` unless a judge is wired **and** it passes anchor
+Returns `INCONCLUSIVE` unless a judge is wired **and** the rubric has both pass and fail anchors **and** it passes anchor
 calibration **and** the adversarial panel. It can never override a deterministic
 FAIL. See trust-architecture.md before using it.
 

@@ -96,6 +96,85 @@ class TestJudgeGuardrails(unittest.TestCase):
             v = run_assertion(self._entry(), AgentRun(output={"opener": "borderline"}), ctx)
         self.assertIs(v.status, Status.FAIL)
 
+    # --- single-judge path: panel omitted, so one graded call after calibration ---
+
+    def _single(self, anchors=None):
+        cfg = {"rubric": "opener is specific"}
+        if anchors is not None:
+            cfg["anchors"] = anchors
+        return {"judge": cfg}
+
+    def test_single_judge_without_anchors_is_inconclusive(self):
+        # a rubber-stamp judge with nothing to calibrate against must not produce a green
+        calls = []
+        judge = ScriptedJudge(lambda art, r: calls.append(art) or True)
+        with tempfile.TemporaryDirectory() as d:
+            v = run_assertion(self._single(), AgentRun(output={"opener": "mailmerge"}),
+                              EvalContext(base_dir=Path(d), judge=judge))
+        self.assertIs(v.status, Status.INCONCLUSIVE)
+        self.assertEqual(calls, [])  # the unchecked call is never made
+
+    def test_single_judge_with_empty_anchors_is_inconclusive(self):
+        judge = ScriptedJudge(lambda art, r: True)
+        with tempfile.TemporaryDirectory() as d:
+            v = run_assertion(self._single(anchors=[]), AgentRun(output={"opener": "mailmerge"}),
+                              EvalContext(base_dir=Path(d), judge=judge))
+        self.assertIs(v.status, Status.INCONCLUSIVE)
+
+    def test_pass_only_anchors_cannot_calibrate_a_rubber_stamp(self):
+        judge = ScriptedJudge(lambda art, r: True)
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx_with_anchors(judge, Path(d))
+            v = run_assertion(self._single(anchors=[{"output": "good.json", "expect": "pass"}]),
+                              AgentRun(output={"opener": "mailmerge"}), ctx)
+        self.assertIs(v.status, Status.INCONCLUSIVE)
+
+    def test_fail_only_anchors_cannot_calibrate_an_always_fail_judge(self):
+        judge = ScriptedJudge(lambda art, r: False)
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx_with_anchors(judge, Path(d))
+            v = run_assertion(self._single(anchors=[{"output": "bad.json", "expect": "fail"}]),
+                              AgentRun(output={"opener": "specific"}), ctx)
+        self.assertIs(v.status, Status.INCONCLUSIVE)
+
+    def test_invalid_anchor_expect_is_a_config_failure(self):
+        judge = ScriptedJudge(lambda art, r: True)
+        anchors = [{"output": "good.json", "expect": "pass"}, {"output": "bad.json", "expect": "nope"}]
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx_with_anchors(judge, Path(d))
+            v = run_assertion(self._single(anchors=anchors), AgentRun(output={"opener": "specific"}), ctx)
+        self.assertIs(v.status, Status.FAIL)
+
+    def test_single_calibrated_judge_passes_good_and_fails_bad(self):
+        anchors = [{"output": "good.json", "expect": "pass"}, {"output": "bad.json", "expect": "fail"}]
+        calls = []
+
+        def rule(art, r):
+            calls.append(art)
+            return art.get("opener") == "specific"
+
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx_with_anchors(ScriptedJudge(rule), Path(d))
+            good = run_assertion(self._single(anchors=anchors), AgentRun(output={"opener": "specific"}), ctx)
+            self.assertIs(good.status, Status.PASS)
+            # panel defaults to 1: the anchors, then exactly one graded call on the real output
+            self.assertEqual(len(calls), len(anchors) + 1)
+            bad = run_assertion(self._single(anchors=anchors), AgentRun(output={"opener": "mailmerge"}), ctx)
+            self.assertIs(bad.status, Status.FAIL)
+
+    def test_single_rubber_stamp_with_both_anchors_is_void(self):
+        anchors = [{"output": "good.json", "expect": "pass"}, {"output": "bad.json", "expect": "fail"}]
+        with tempfile.TemporaryDirectory() as d:
+            ctx = self._ctx_with_anchors(ScriptedJudge(lambda art, r: True), Path(d))
+            v = run_assertion(self._single(anchors=anchors), AgentRun(output={"opener": "mailmerge"}), ctx)
+        self.assertIs(v.status, Status.INCONCLUSIVE)
+
+    def test_claude_judge_prompt_asks_for_refutation(self):
+        # the prompt's effect can't be checked offline; this only stops it from silently regressing
+        from litmus.judge import _JUDGE_PROMPT
+        self.assertIn("refute", _JUDGE_PROMPT)
+        self.assertIn("If you find one, answer FAIL", _JUDGE_PROMPT)
+
 
 class TestMatrix(unittest.TestCase):
     def _build_suite(self, base: Path):

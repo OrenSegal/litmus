@@ -63,7 +63,7 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 | `budget` | cost / tokens / latency within envelope (missing telemetry → `INCONCLUSIVE`) |
 | `resolves` | every cited URL resolves — bot-wall-aware (`verify_sources.py` link check) |
 | `grounded` | cited claim's words actually appear on the fetched source, page-length-invariant |
-| `judge` | LLM-rubric — **`INCONCLUSIVE` until a judge + anchors are wired (M3)** |
+| `judge` | LLM-rubric. **`INCONCLUSIVE` unless a judge is wired and the rubric has at least one pass and one fail anchor** |
 
 `resolves`/`grounded` take an injectable `Fetcher`, so the whole engine — including grounding — runs offline in tests via a `DictFetcher`.
 

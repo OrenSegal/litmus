@@ -13,6 +13,9 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    Before grading the real output, the judge re-grades the anchors. If it
    misgrades a known anchor, its verdict is void → `INCONCLUSIVE`. A judge that
    can't tell fixed-good from fixed-bad doesn't get to bless anything.
+   Anchors are required: with no anchors, or without at least one `pass` and one
+   `fail` anchor, the assertion is `INCONCLUSIVE` and the real output is never
+   graded. A pass-only set can't catch a judge that always says PASS.
 
    ```json
    { "judge": {
@@ -25,8 +28,11 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    } }
    ```
 
-2. **Adversarial panel.** `panel: N` independent judges vote; **ties and
-   disagreement default to FAIL.**
+2. **Adversarial panel.** `panel: N` (default 1) calls of the configured judge
+   vote; **ties and disagreement default to FAIL.** `ClaudeJudge` is prompted to
+   refute: find a concrete violation and answer FAIL, or PASS only if it can't.
+   The N calls use the same judge and prompt, so they are repeated samples, not
+   independent judges.
 
 3. **Deterministic floor.** A judge PASS can never override a deterministic FAIL
    on the same case. Checkable truth outranks opinion.
