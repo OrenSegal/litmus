@@ -7,6 +7,12 @@
     litmus index  <suite> [<suite> ...]       # Hallucination Index leaderboard
     litmus capture "<prompt>" --out run.json  # capture a live AgentRun via the Claude CLI
     litmus version
+
+run, gate, bless, matrix and index also take `--judge claude` (and optionally
+`--judge-model <id>`) to grade `judge` assertions with the Claude CLI. Without
+`--judge`, no judge is built, nothing is sent to a model, and every `judge`
+assertion is INCONCLUSIVE. If a requested judge can't run, the command prints
+the reason to stderr and exits 2.
 """
 
 from __future__ import annotations
@@ -17,14 +23,31 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .assertions import EvalContext
+from .assertions import EvalContext, JudgeError
 from .gate import can_bless, diff, load_baseline, write_baseline
 from .index import IndexEntry, render_index
+from .judge import DEFAULT_JUDGE_MODEL, ClaudeJudge
 from .matrix import evaluate_matrix, render_matrix
 from .models import Status
 from .report import render_gate, render_suite
 from .report_html import render_html
 from .runner import evaluate_suite
+
+
+def _build_judge(args: argparse.Namespace):
+    """Return the judge named by --judge, or None. None keeps judge assertions
+    INCONCLUSIVE and means no model is ever called."""
+    name = getattr(args, "judge", None)
+    if name is None:
+        return None
+    if name == "claude":
+        ClaudeJudge.check_available()
+        return ClaudeJudge(model=args.judge_model) if args.judge_model else ClaudeJudge()
+    raise JudgeError(f"unknown judge {name!r}")  # argparse choices should stop this first
+
+
+def _ctx(args: argparse.Namespace, suite_dir: Path) -> EvalContext:
+    return EvalContext(base_dir=suite_dir, timeout=args.timeout, judge=args.judge_fn)
 
 
 def _maybe_html(args: argparse.Namespace, result) -> None:
@@ -35,8 +58,7 @@ def _maybe_html(args: argparse.Namespace, result) -> None:
 
 def _run(args: argparse.Namespace) -> int:
     suite_dir = Path(args.suite)
-    ctx = EvalContext(base_dir=suite_dir, timeout=args.timeout)
-    result = evaluate_suite(suite_dir, ctx)
+    result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
     print(render_suite(result, verbose=not args.quiet))
     _maybe_html(args, result)
     return 1 if any(c.status is Status.FAIL for c in result.cases) else 0
@@ -44,9 +66,8 @@ def _run(args: argparse.Namespace) -> int:
 
 def _matrix(args: argparse.Namespace) -> int:
     suite_dir = Path(args.suite)
-    ctx = EvalContext(base_dir=suite_dir, timeout=args.timeout)
     models = args.models.split(",") if args.models else None
-    result = evaluate_matrix(suite_dir, ctx, models)
+    result = evaluate_matrix(suite_dir, _ctx(args, suite_dir), models)
     print(render_matrix(result))
     if args.reference:
         regs = result.regressions_vs(args.reference)
@@ -62,7 +83,7 @@ def _index(args: argparse.Namespace) -> int:
     entries = []
     for suite in args.suites:
         suite_dir = Path(suite)
-        result = evaluate_suite(suite_dir, EvalContext(base_dir=suite_dir, timeout=args.timeout))
+        result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
         target = result.target or {}
         entries.append(IndexEntry.from_suite(
             target.get("skill", suite_dir.name), target.get("model", "default"), result))
@@ -94,8 +115,7 @@ def _capture(args: argparse.Namespace) -> int:
 
 def _gate(args: argparse.Namespace) -> int:
     suite_dir = Path(args.suite)
-    ctx = EvalContext(base_dir=suite_dir, timeout=args.timeout)
-    result = evaluate_suite(suite_dir, ctx)
+    result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
     baseline_path = Path(args.baseline) if args.baseline else suite_dir / "baseline.json"
     if not baseline_path.exists():
         print(f"no baseline at {baseline_path} — run `litmus bless {args.suite}` first", file=sys.stderr)
@@ -110,8 +130,7 @@ def _gate(args: argparse.Namespace) -> int:
 
 def _bless(args: argparse.Namespace) -> int:
     suite_dir = Path(args.suite)
-    ctx = EvalContext(base_dir=suite_dir, timeout=args.timeout)
-    result = evaluate_suite(suite_dir, ctx)
+    result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
     ok, msg = can_bless(result)
     if not ok and not args.force:
         print(msg, file=sys.stderr)
@@ -132,27 +151,35 @@ def main(argv=None) -> int:
     common.add_argument("--timeout", type=int, default=10, help="per-URL fetch timeout (s)")
     common.add_argument("--quiet", action="store_true", help="case-level output only")
 
-    p_run = sub.add_parser("run", parents=[common], help="evaluate a suite")
+    judging = argparse.ArgumentParser(add_help=False)
+    judging.add_argument(
+        "--judge", choices=["claude"], default=None,
+        help="grade `judge` assertions with this judge (default: none, so they are INCONCLUSIVE)")
+    judging.add_argument(
+        "--judge-model", default=None,
+        help=f"model id for --judge claude (default: {DEFAULT_JUDGE_MODEL})")
+
+    p_run = sub.add_parser("run", parents=[common, judging], help="evaluate a suite")
     p_run.add_argument("--html", help="also write a self-contained HTML report here")
     p_run.set_defaults(func=_run)
 
-    p_gate = sub.add_parser("gate", parents=[common], help="diff vs baseline; fail on regressions")
+    p_gate = sub.add_parser("gate", parents=[common, judging], help="diff vs baseline; fail on regressions")
     p_gate.add_argument("--baseline", help="baseline JSON (default: <suite>/baseline.json)")
     p_gate.add_argument("--drift-tol", type=float, default=0.10, help="allowed pass-rate drop before it's a regression")
     p_gate.add_argument("--html", help="also write a self-contained HTML report here")
     p_gate.set_defaults(func=_gate)
 
-    p_bless = sub.add_parser("bless", parents=[common], help="snapshot current result as baseline")
+    p_bless = sub.add_parser("bless", parents=[common, judging], help="snapshot current result as baseline")
     p_bless.add_argument("--out", help="output baseline path (default: <suite>/baseline.json)")
     p_bless.add_argument("--force", action="store_true", help="bless even with failing cases")
     p_bless.set_defaults(func=_bless)
 
-    p_matrix = sub.add_parser("matrix", parents=[common], help="case x model grid across model-tagged runs")
+    p_matrix = sub.add_parser("matrix", parents=[common, judging], help="case x model grid across model-tagged runs")
     p_matrix.add_argument("--models", help="comma-separated model filter (default: all found)")
     p_matrix.add_argument("--reference", help="model to treat as baseline; exit 1 on cross-model regressions")
     p_matrix.set_defaults(func=_matrix)
 
-    p_index = sub.add_parser("index", help="Hallucination Index across suites")
+    p_index = sub.add_parser("index", parents=[judging], help="Hallucination Index across suites")
     p_index.add_argument("suites", nargs="+", help="one or more suite directories")
     p_index.add_argument("--timeout", type=int, default=10)
     p_index.set_defaults(func=_index)
@@ -165,7 +192,14 @@ def main(argv=None) -> int:
     p_cap.set_defaults(func=_capture)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    if getattr(args, "judge_model", None) and not args.judge:
+        parser.error("--judge-model only applies together with --judge")
+    try:
+        args.judge_fn = _build_judge(args)
+        return args.func(args)
+    except JudgeError as exc:
+        print(f"litmus: judge error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

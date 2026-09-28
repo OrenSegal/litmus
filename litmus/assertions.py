@@ -23,8 +23,15 @@ from .jsonpath import exists, resolve
 from .models import AgentRun, Verdict
 
 # A judge callable: (artifact, rubric) -> bool  (True == meets the criterion).
-# Injected in M3; absent in M1 so judge assertions are INCONCLUSIVE offline.
+# Absent by default, so judge assertions are INCONCLUSIVE unless a caller wires
+# one in (the CLI does this only with `--judge`).
 JudgeFn = Callable[[Any, str], bool]
+
+
+class JudgeError(RuntimeError):
+    """The configured judge could not give a verdict (CLI missing, auth failed,
+    empty reply). It aborts the run instead of becoming a verdict, so a broken
+    judge is never reported as INCONCLUSIVE or FAIL."""
 
 
 @dataclass
@@ -56,6 +63,8 @@ def run_assertion(entry: Dict[str, Any], run: AgentRun, ctx: EvalContext) -> Ver
         return Verdict(name, _fail_status(), f"unknown assertion '{name}'")
     try:
         return handler(config, run, ctx)
+    except JudgeError:
+        raise
     except Exception as exc:  # a broken assertion config is a failure, never a crash
         return Verdict(name, _fail_status(), f"assertion errored: {exc}")
 

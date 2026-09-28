@@ -108,8 +108,10 @@ Every eval tool on the market has the same silent failure mode: *the judge is a 
 
 1. **Anchored calibration.** Every rubric ships with pinned pass/fail exemplars. The engine enforces this: a `judge` assertion without at least one `expect: pass` anchor and one `expect: fail` anchor returns `INCONCLUSIVE` without calling the judge on the real output. Both kinds are required because a judge that always says PASS agrees with any set of pass-only anchors, and one that always says FAIL agrees with any set of fail-only anchors. Before grading the real output, the judge re-grades the anchors. **If it misgrades a known anchor, its verdict on the real case is void → `INCONCLUSIVE`, never `PASS`.** A judge that can't tell the fixed-good from the fixed-bad doesn't get to bless anything.
 2. **Adversarial panel.** `panel: N` (default 1) makes N calls of the configured judge on the real output; majority rules; **ties and disagreement default to `FAIL`.** The bundled `ClaudeJudge` prompt asks the model to refute the claim that the artifact meets the criterion: look for a concrete violation, answer FAIL if it finds one, PASS only if it cannot. Not yet implemented: the N calls go to the same judge with the same prompt, so they are repeated samples, not independent judges. With the default panel of 1, a `PASS` rests on the calibration in guardrail 1 plus one refute-prompted call.
+
+   Wiring: the engine only grades with a judge that its caller passes in. The `litmus` command builds one only when run with `--judge claude` (model set by `--judge-model`, default `claude-haiku-4-5-20251001`). Without that flag every `judge` assertion is `INCONCLUSIVE` and no model is called. A requested judge that can't give a verdict (CLI missing, auth failure, empty reply) stops the run with exit code 2; it is never turned into a verdict.
 3. **Deterministic floor.** A judge `PASS` can never override a deterministic `FAIL` on the same case. Checkable truth outranks opinion.
-4. **No self-grading.** The judge model is decoupled from the target model, and the judge sees only `{artifact, rubric}` — never "you produced this." A model may not grade its own homework.
+4. **No self-grading.** The judge model is decoupled from the target model, and the judge sees only `{artifact, rubric}`, never "you produced this." A model may not grade its own homework. The prompt side is enforced in code. The model side is not: Litmus does not compare `--judge-model` with the model that produced the run, so picking a different one is up to you.
 
 > **Invariant:** green comes only from checks that could have failed. Anything a self-grading model could have waved through is reported, not counted.
 
@@ -137,6 +139,8 @@ litmus matrix  suite/ --models opus-4.8,sonnet-5,haiku-4.5   # the "model upgrad
 litmus bless   suite/            # accept current run as new baseline (guardrailed*)
 litmus index   suites/*          # aggregate → Hallucination Index (§12)
 ```
+
+`run`, `gate`, `bless`, `matrix` and `index` accept `--judge claude [--judge-model <id>]` to grade `judge` assertions (§6). Without it they make no model calls and `judge` assertions are `INCONCLUSIVE`.
 
 - **`gate`** is the ratchet: a regression = a case that was green and is now red, OR a pass-rate drop past tolerance. The baseline failure count may only shrink (same discipline as Shelfie's arch-lint ratchet). Non-zero exit fails the PR.
 - **`bless`** *cannot* bless a case with a live deterministic `FAIL` — you can't paper over a broken citation by updating the snapshot. (Guardrail borrowed from `jest -u`'s worst footgun, closed.)
