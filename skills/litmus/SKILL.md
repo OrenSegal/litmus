@@ -59,7 +59,9 @@ pip install litmus-ci        # provides the `litmus` command
    `--judge-model <id>` picks the judge model (default
    `claude-haiku-4-5-20251001`). The Claude CLI must be installed and either
    logged in or given `ANTHROPIC_API_KEY`; if it can't answer, the command
-   exits 2 with the reason instead of reporting INCONCLUSIVE.
+   exits 2 with the reason instead of reporting INCONCLUSIVE. Pass the same
+   `--judge` setting to `bless` and `gate`, or judge assertions blessed as
+   PASS will show up as regressions.
 
 4. **Baseline + gate** for CI — the ratchet only breaks the build on a
    *regression*, never on a fix or a new green case:

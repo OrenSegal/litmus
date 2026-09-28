@@ -48,7 +48,7 @@ litmus index   <suite> [<suite> ...]       # Hallucination Index leaderboard
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 ```
 
-`run`, `gate`, `bless`, `matrix` and `index` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`.
+`run`, `gate`, `bless`, `matrix` and `index` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
 
 Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
 
