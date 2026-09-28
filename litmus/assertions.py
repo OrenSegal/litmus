@@ -274,11 +274,26 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
             "judge",
             "no judge configured — a green must come from a falsifiable check, so this is INCONCLUSIVE, not PASS",
         )
-    # §6 guardrail 1: anchored calibration. If the judge misgrades a known
-    # anchor, its verdict on the real artifact is void.
-    for anchor in config.get("anchors", []):
-        import json
+    # §6 guardrail 1: anchored calibration. Anchors are required, with at least one
+    # "pass" and at least one "fail" example. Without both, calibration cannot catch a
+    # constant judge: an always-PASS judge agrees with any pass-only set, and an
+    # always-FAIL judge agrees with any fail-only set. An uncalibrated judge call is
+    # not a check that could have failed, so it is INCONCLUSIVE, never PASS.
+    anchors = config.get("anchors") or []
+    expects = [a.get("expect") for a in anchors]
+    bad = [e for e in expects if e not in ("pass", "fail")]
+    if bad:
+        return Verdict.failed("judge", f"anchor expect must be 'pass' or 'fail', got {bad!r}")
+    if "pass" not in expects or "fail" not in expects:
+        return Verdict.inconclusive(
+            "judge",
+            "judge needs at least one 'pass' and one 'fail' anchor to be calibrated; "
+            "an uncalibrated judge verdict is INCONCLUSIVE, not PASS",
+        )
+    # If the judge misgrades a known anchor, its verdict on the real artifact is void.
+    import json
 
+    for anchor in anchors:
         art = json.loads((ctx.base_dir / anchor["output"]).read_text(encoding="utf-8"))
         expect = anchor["expect"] == "pass"
         if ctx.judge(art, rubric) != expect:
