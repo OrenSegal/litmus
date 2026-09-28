@@ -12,11 +12,11 @@ Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `si
 
 ## Status
 
-Full pipeline, **47 tests, all offline** — no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact; the engine never calls a model, which is what keeps it deterministic and testable. Live capture and judging go through the Claude CLI's own auth (still no API key).
+Full pipeline, **65 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Two things do call a model, and only when you ask: `litmus capture`, and `judge` assertions when you pass `--judge claude`. Both run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 47 passing, no deps
+python3 -m unittest discover -s tests -t .        # 65 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
 pip install litmus-ci                              # or install the `litmus` command
@@ -26,7 +26,7 @@ pip install litmus-ci                              # or install the `litmus` com
 |---|---|
 | M1 engine | pure grader, 11 deterministic assertions, sample-based pass-rates, gate ratchet |
 | M2 capture + report | `claude-code` stream-json adapter (`litmus capture`), self-contained `--html` report |
-| M3 judge | anchored calibration + adversarial panel; INCONCLUSIVE-until-falsifiable |
+| M3 judge | anchored calibration (pass and fail anchors required), `panel: N` majority vote over repeated calls of one judge, `--judge claude` on the CLI; INCONCLUSIVE until falsifiable |
 | M4 matrix | `litmus matrix` — case × model grid, cross-model regression detection |
 | M6 index | `litmus index` — the Hallucination Index leaderboard |
 | packaging | Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, CI dogfood |
@@ -48,6 +48,8 @@ litmus index   <suite> [<suite> ...]       # Hallucination Index leaderboard
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 ```
 
+`run`, `gate`, `bless`, `matrix` and `index` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`.
+
 Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
 
 ## Assertions (M1, all deterministic)
@@ -63,7 +65,7 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 | `budget` | cost / tokens / latency within envelope (missing telemetry → `INCONCLUSIVE`) |
 | `resolves` | every cited URL resolves — bot-wall-aware (`verify_sources.py` link check) |
 | `grounded` | cited claim's words actually appear on the fetched source, page-length-invariant |
-| `judge` | LLM-rubric. **`INCONCLUSIVE` unless a judge is wired and the rubric has at least one pass and one fail anchor** |
+| `judge` | LLM-rubric. **`INCONCLUSIVE` unless you run with `--judge claude` (or pass a judge from Python) and the rubric has at least one pass and one fail anchor that the judge grades correctly** |
 
 `resolves`/`grounded` take an injectable `Fetcher`, so the whole engine — including grounding — runs offline in tests via a `DictFetcher`.
 
@@ -86,8 +88,8 @@ Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`
 ## Next
 
 M1–M6 are in. Open threads: `agent-sdk` adapter, a hosted gate that runs the
-matrix on every PR, and a real public **Hallucination Index** run. Direction and
-moat: [`BUSINESS.md`](./BUSINESS.md).
+matrix on every PR, a real public **Hallucination Index** run, and a panel of
+truly independent judges (today `panel: N` repeats the same judge and prompt).
 
 ## License
 

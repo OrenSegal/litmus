@@ -38,14 +38,34 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    on the same case. Checkable truth outranks opinion.
 
 4. **No self-grading.** The judge model is decoupled from the target model and
-   sees only `{artifact, rubric}` — never "you produced this."
+   sees only `{artifact, rubric}`, never "you produced this." Litmus doesn't
+   check which model produced the run, so choose a `--judge-model` that differs
+   from it.
 
 ## Wiring a judge
 
-The engine takes a `JudgeFn(artifact, rubric) -> bool` on its `EvalContext`.
-`litmus.judge.ClaudeJudge` backs it with the Claude CLI (its own auth, no API
-key). In tests, `litmus.judge.ScriptedJudge(rule)` is a deterministic fake so
-the guardrails are provable offline.
+From the command line, add `--judge claude` to `run`, `gate`, `bless`,
+`matrix` or `index`:
+
+```bash
+litmus run suite/ --judge claude
+litmus gate suite/ --baseline suite/baseline.json --judge claude --judge-model <id>
+```
+
+This uses `litmus.judge.ClaudeJudge`, which calls `claude -p` once per anchor
+and once per panel vote. The Claude CLI handles auth: your `claude` login, or
+`ANTHROPIC_API_KEY` if set. The default judge model is
+`claude-haiku-4-5-20251001`.
+
+Without `--judge`, no judge is built and no model is called, so every `judge`
+assertion is INCONCLUSIVE. If you ask for a judge and it can't answer (`claude`
+not on PATH, a non-zero exit such as an auth error, or an empty reply), the
+command prints the reason and exits 2. It does not report INCONCLUSIVE, because
+that would hide a setup problem behind a verdict.
+
+From Python, the engine takes a `JudgeFn(artifact, rubric) -> bool` on its
+`EvalContext(judge=...)`. In tests, `litmus.judge.ScriptedJudge(rule)` is a
+deterministic fake so the guardrails are provable offline.
 
 ## The tell
 
