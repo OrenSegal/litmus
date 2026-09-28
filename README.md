@@ -66,7 +66,7 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 | `equals` / `contains` / `matches` | deterministic value / substring / regex at a JSONPath |
 | `count` | cardinality at a JSONPath (`>=`, `<`, `==`, …) |
 | `budget` | cost / tokens / latency within envelope (missing telemetry → `INCONCLUSIVE`) |
-| `resolves` | every cited URL resolves — bot-wall-aware (`verify_sources.py` link check) |
+| `resolves` | every cited URL resolves, bot-wall-aware (`verify_sources.py` link check) |
 | `grounded` | cited claim's words actually appear on the fetched source, page-length-invariant |
 | `judge` | LLM-rubric. **`INCONCLUSIVE` unless you run with `--judge claude` (or pass a judge from Python), the judge model is not the model that produced the run, and the rubric has at least one pass and one fail anchor that the judge grades correctly** |
 
