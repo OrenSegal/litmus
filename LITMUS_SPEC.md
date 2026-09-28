@@ -4,13 +4,13 @@
 
 **Status:** design spec (M0). No code yet — review gate before build.
 **Author:** Oren Segal · **License:** MIT · **Repo:** `github.com/OrenSegal/litmus`
-**Lineage:** generalizes `signal-scout/scripts/verify_sources.py` — deterministic checks wrapped around self-graded model output.
+**Lineage:** generalizes `signal-scout/scripts/verify_sources.py` — deterministic checks around model output, so a model's self-assessment is never the last word.
 
 ---
 
 ## 0. One line
 
-Litmus pins golden tasks for a skill (or system prompt, or tool definition), runs them against a change — an edit, a model upgrade, a new dependency — and returns a **red/green diff**. Underneath the wedge it is a general **verification harness for agent claims**: deterministic checks wrapped around self-graded model output, so a model can never rubber-stamp its own work green.
+Litmus pins golden tasks for a skill (or system prompt, or tool definition), runs them against a change — an edit, a model upgrade, a new dependency — and returns a **red/green diff**. Underneath the wedge it is a general **verification harness for agent claims**: deterministic checks around model output, so a model can never rubber-stamp its own work green.
 
 Tagline options: *"Did editing SKILL.md make the agent better or worse? Stop guessing."* · *"pytest for the prose that steers your agent."*
 
@@ -107,7 +107,7 @@ Design rule: **push everything you can down to deterministic.** A judge assertio
 Every eval tool on the market has the same silent failure mode: *the judge is a model, and models rubber-stamp.* Litmus makes a judge verdict **falsifiable or void**. Four guardrails, all required for a judge `PASS`:
 
 1. **Anchored calibration.** Every rubric ships with pinned pass/fail exemplars. The engine enforces this: a `judge` assertion without at least one `expect: pass` anchor and one `expect: fail` anchor returns `INCONCLUSIVE` without calling the judge on the real output. Both kinds are required because a judge that always says PASS agrees with any set of pass-only anchors, and one that always says FAIL agrees with any set of fail-only anchors. Before grading the real output, the judge re-grades the anchors. **If it misgrades a known anchor, its verdict on the real case is void → `INCONCLUSIVE`, never `PASS`.** A judge that can't tell the fixed-good from the fixed-bad doesn't get to bless anything.
-2. **Adversarial panel.** `panel: N` (default 1) makes N calls of the configured judge on the real output; majority rules; **ties and disagreement default to `FAIL`.** The bundled `ClaudeJudge` prompt asks the model to refute the claim that the artifact meets the criterion: look for a concrete violation, answer FAIL if it finds one, PASS only if it cannot. Not yet implemented: the N calls go to the same judge with the same prompt, so they are repeated samples, not independent judges. With the default panel of 1, a `PASS` rests on the calibration in guardrail 1 plus one refute-prompted call.
+2. **Judge panel.** `panel: N` (default 1) makes N calls of the configured judge on the real output; majority rules; **ties and disagreement default to `FAIL`.** The bundled `ClaudeJudge` prompt asks the model to refute the claim that the artifact meets the criterion: look for a concrete violation, answer FAIL if it finds one, PASS only if it cannot. Not yet implemented: the N calls go to the same judge with the same prompt, so they are repeated samples, not independent judges. With the default panel of 1, a `PASS` rests on the calibration in guardrail 1 plus one refute-prompted call.
 
    Wiring: the engine only grades with a judge that its caller passes in. The `litmus` command builds one only when run with `--judge claude` (model set by `--judge-model`, default `claude-haiku-4-5-20251001`). Without that flag every `judge` assertion is `INCONCLUSIVE` and no model is called. A requested judge that can't give a verdict (CLI missing, auth failure, empty reply) stops the run with exit code 2; it is never turned into a verdict.
 3. **Deterministic floor.** A judge `PASS` can never override a deterministic `FAIL` on the same case. Checkable truth outranks opinion.

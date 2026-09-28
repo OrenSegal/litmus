@@ -1,6 +1,6 @@
 {
   "name": "litmus",
-  "description": "Red/green CI for prompt-ware. Pin golden tasks for a skill, run them against a change, get a red/green diff — deterministic checks wrapped around self-graded model output, so a green only ever comes from a check that could have failed.",
+  "description": "Red/green CI for prompt-ware. Pin golden tasks for a skill, run them against a change, get a red/green diff — deterministic checks around model output, so a model's own confidence is never the last word and a green only ever comes from a check that could have failed.",
   "version": "0.1.0",
   "author": { "name": "Oren Segal" },
   "homepage": "https://github.com/OrenSegal/litmus",

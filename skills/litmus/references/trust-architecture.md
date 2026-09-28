@@ -28,7 +28,7 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    } }
    ```
 
-2. **Adversarial panel.** `panel: N` (default 1) calls of the configured judge
+2. **Judge panel.** `panel: N` (default 1) calls of the configured judge
    vote; **ties and disagreement default to FAIL.** `ClaudeJudge` is prompted to
    refute: find a concrete violation and answer FAIL, or PASS only if it can't.
    The N calls use the same judge and prompt, so they are repeated samples, not

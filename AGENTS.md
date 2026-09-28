@@ -7,7 +7,7 @@ Litmus — red/green CI for prompt-ware. Test the behavior a skill's scripts can
 - **Skill**: `skills/litmus/SKILL.md` teaches an agent to author + run suites.
 - **CLI**: `litmus run | gate | bless | matrix | index | capture`
   (`pip install litmus-ci`, or `python3 -m litmus.cli`).
-- **Tests**: `python3 -m unittest discover -s tests -t .`: 78 passing, offline,
+- **Tests**: `python3 -m unittest discover -s tests -t .`: 102 passing, offline,
   no API key.
 
 The invariant that defines the product: **a green only ever comes from a check
