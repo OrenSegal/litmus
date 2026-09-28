@@ -12,7 +12,9 @@ run, gate, bless, matrix and index also take `--judge claude` (and optionally
 `--judge-model <id>`) to grade `judge` assertions with the Claude CLI. Without
 `--judge`, no judge is built, nothing is sent to a model, and every `judge`
 assertion is INCONCLUSIVE. If a requested judge can't run, the command prints
-the reason to stderr and exits 2.
+the reason to stderr and exits 2. A judge never grades a run produced by its own
+model (the run is INCONCLUSIVE); if a run's model is unknown it is graded and a
+warning is printed to stderr once per command.
 """
 
 from __future__ import annotations
@@ -47,7 +49,15 @@ def _build_judge(args: argparse.Namespace):
 
 
 def _ctx(args: argparse.Namespace, suite_dir: Path) -> EvalContext:
-    return EvalContext(base_dir=suite_dir, timeout=args.timeout, judge=args.judge_fn)
+    # One warnings list per invocation, so `index` over several suites still
+    # prints each warning once.
+    return EvalContext(base_dir=suite_dir, timeout=args.timeout, judge=args.judge_fn,
+                       warnings=args.warnings)
+
+
+def _print_warnings(args: argparse.Namespace) -> None:
+    for message in getattr(args, "warnings", []):
+        print(f"litmus: warning: {message}", file=sys.stderr)
 
 
 def _maybe_html(args: argparse.Namespace, result) -> None:
@@ -194,12 +204,15 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if getattr(args, "judge_model", None) and not args.judge:
         parser.error("--judge-model only applies together with --judge")
+    args.warnings = []
     try:
         args.judge_fn = _build_judge(args)
         return args.func(args)
     except JudgeError as exc:
         print(f"litmus: judge error: {exc}", file=sys.stderr)
         return 2
+    finally:
+        _print_warnings(args)
 
 
 if __name__ == "__main__":

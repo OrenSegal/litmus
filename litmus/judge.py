@@ -19,7 +19,7 @@ import json
 import re
 import shutil
 import subprocess
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from .assertions import JudgeError
 
@@ -46,8 +46,10 @@ class ScriptedJudge:
     a coin-flip panel without any model call.
     """
 
-    def __init__(self, rule: Callable[[Any, str], bool]):
+    def __init__(self, rule: Callable[[Any, str], bool], model: Optional[str] = None):
         self._rule = rule
+        # The model this fake stands in for, read by the no-self-grading check.
+        self.model = model
 
     def __call__(self, artifact: Any, rubric: str) -> bool:
         return bool(self._rule(artifact, rubric))
