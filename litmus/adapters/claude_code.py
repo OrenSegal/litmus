@@ -12,6 +12,7 @@ ignore the rest, so the adapter degrades gracefully across CLI versions:
     {"type":"assistant","message":{"content":[
         {"type":"tool_use","name":"finalize.py","input":{...}},
         {"type":"text","text":"..."}]}}
+    {"type":"system","subtype":"init","model":"claude-sonnet-4-5-20250929",...}
     {"type":"result","subtype":"success","result":"...",
         "total_cost_usd":0.03,"duration_ms":5100,
         "usage":{"input_tokens":1000,"output_tokens":200}}
@@ -50,9 +51,16 @@ def parse_stream(events: List[Dict[str, Any]]) -> AgentRun:
     tokens: Optional[int] = None
     latency: Optional[float] = None
     result_text = ""
+    model: Optional[str] = None  # the model that actually ran, for no-self-grading
 
     for ev in events:
         etype = ev.get("type")
+        if etype == "system" and ev.get("model") and model is None:
+            model = str(ev["model"])
+        if etype == "assistant" and model is None:
+            msg_model = (ev.get("message") or {}).get("model")
+            if msg_model:
+                model = str(msg_model)
         if etype in ("assistant", "user"):
             content = ev.get("message", {}).get("content", [])
             if isinstance(content, str):
@@ -74,7 +82,7 @@ def parse_stream(events: List[Dict[str, Any]]) -> AgentRun:
             tokens = tok or tokens
 
     final_text = result_text or (texts[-1] if texts else "")
-    return AgentRun(
+    run = AgentRun(
         output=_extract_output(final_text),
         tool_calls=tool_calls,
         final_text=final_text,
@@ -83,6 +91,9 @@ def parse_stream(events: List[Dict[str, Any]]) -> AgentRun:
         tokens=tokens,
         latency_ms=latency,
     )
+    if model:
+        run.meta["model"] = model
+    return run
 
 
 def capture(
@@ -114,6 +125,14 @@ def capture(
         except json.JSONDecodeError:
             continue
     run = parse_stream(events)
-    run.meta.setdefault("model", model or "default")
+    # An explicit --model is the tag `matrix` groups and filters on, so it wins.
+    # The id the CLI reported is kept as meta.model_id. With no --model, the
+    # reported id becomes meta.model ("default" only if the CLI reported none).
+    reported = run.meta.get("model")
+    if reported:
+        run.meta["model_id"] = reported
+    if model:
+        run.meta["model"] = model
+    run.meta.setdefault("model", "default")
     run.meta.setdefault("exit_code", proc.returncode)
     return run

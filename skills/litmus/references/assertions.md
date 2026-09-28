@@ -30,7 +30,9 @@ bot-walled platform (reddit/x/linkedin/…) as `INCONCLUSIVE`, never a dead link
 | `judge` | `{rubric, anchors, panel?}` (anchors required: at least one `expect: pass` and one `expect: fail`) |
 
 Returns `INCONCLUSIVE` unless a judge is wired (`--judge claude` on the CLI, or `EvalContext(judge=...)` from Python) **and** the rubric has both pass and fail anchors **and** it passes anchor
-calibration **and** the adversarial panel. It can never override a deterministic
+calibration **and** the adversarial panel. It is also `INCONCLUSIVE`, with no
+judge call, when the judge model is the model that produced the run (run
+`meta.model`, else `target.model`). It can never override a deterministic
 FAIL. See trust-architecture.md before using it.
 
 ## Verdict statuses

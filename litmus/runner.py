@@ -8,6 +8,7 @@ green nor reliably red (LITMUS_SPEC §7).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import List
 
@@ -54,6 +55,10 @@ def evaluate_case(
 ) -> CaseResult:
     if not runs:
         return CaseResult(case.id, Status.SKIP, target=case.target, error="no samples")
+    # The case target (suite target merged with the case's own) names the model
+    # a run came from when the run itself doesn't; the judge's no-self-grading
+    # check reads it. `replace` keeps `warnings` shared with the caller's ctx.
+    ctx = replace(ctx, target_model=(case.target or {}).get("model"))
     results: List[AssertionResult] = []
     for i, entry in enumerate(case.asserts):
         verdicts = [run_assertion(entry, run, ctx) for run in runs]
