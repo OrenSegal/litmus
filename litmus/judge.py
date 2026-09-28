@@ -1,6 +1,6 @@
 """Judge adapters — turn an artifact + rubric into a boolean verdict.
 
-The trust guardrails (anchored calibration, adversarial panel, deterministic
+The trust guardrails (anchored calibration, judge panel, deterministic
 floor) live in `assertions.judge` and are pure. This module only supplies the
 `JudgeFn` those guardrails wrap. `ClaudeJudge` shells to the Claude CLI, which
 handles auth itself (a `claude` login, or ANTHROPIC_API_KEY if that is set).
