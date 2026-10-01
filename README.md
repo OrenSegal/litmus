@@ -19,6 +19,7 @@ git clone https://github.com/OrenSegal/litmus && cd litmus
 python3 -m unittest discover -s tests -t .        # 102 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
+python3 -m venv .venv && . .venv/bin/activate      # Homebrew/Debian Python refuse a global pip install
 pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
 ```
 
