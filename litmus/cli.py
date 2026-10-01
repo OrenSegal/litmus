@@ -242,7 +242,7 @@ def _bless(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="litmus", description="Red/green CI for prompt-ware.")
+    parser = argparse.ArgumentParser(prog="litmus", description="Red/green regression tests for skills, prompts and tool definitions.")
     parser.add_argument("--version", action="version", version=f"litmus {__version__}")
     sub = parser.add_subparsers(dest="cmd", required=True)
 

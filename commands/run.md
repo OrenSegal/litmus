@@ -1,9 +1,9 @@
 ---
-description: Run a Litmus suite and report red/green per case, with the evidence for every failure.
+description: Run a litmus suite and report red/green per case, with the evidence for every failure.
 argument-hint: <suite-dir> [--judge claude] [--html out.html] [--quiet]
 ---
 
-Run the Litmus suite the user named, using the engine bundled with this plugin:
+Run the litmus suite the user named, using the engine bundled with this plugin:
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/litmus" run $ARGUMENTS

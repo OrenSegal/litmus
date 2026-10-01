@@ -1,7 +1,7 @@
 {
   "name": "litmus-skills",
   "version": "0.2.0",
-  "description": "Red/green CI for prompt-ware. Test the behavior your skill's scripts can't reach — deterministic checks around model output, so a model's own confidence is never the last word.",
+  "description": "Red/green regression tests for skills, prompts and tool definitions. A green only ever comes from a check that could have failed.",
   "bin": { "litmus-skills": "bin/install.js" },
   "files": ["bin", "skills"],
   "scripts": { "postinstall": "node ./bin/install.js || true" },

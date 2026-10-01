@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- One description for the package, npm installer and plugin, checked by a test.
+- `LITMUS_SPEC.md` is now the engine's design document only, and matches the
+  code (`samples` defaults to 1; `ordering`, `capture`, `calibrate` and
+  `status` are documented).
+
+### Removed
+
+- The blank `calibration/WRITEUP.md` template.
+
 ## 0.2.0
 
 Security and correctness hardening. Every fix below has a test in

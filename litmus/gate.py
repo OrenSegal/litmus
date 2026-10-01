@@ -128,7 +128,7 @@ def can_bless(current: SuiteResult) -> Tuple[bool, str]:
 
 
 def write_baseline(current: SuiteResult, path: Path, judge: Optional[str] = None) -> None:
-    """Write the baseline, stamped with the Litmus version and judge model it
+    """Write the baseline, stamped with the litmus version and judge model it
     was blessed under so a later gate can warn when those change."""
     doc = current.to_baseline()
     doc["litmus"] = {"version": __version__, "judge": judge}

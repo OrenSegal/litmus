@@ -1,48 +1,41 @@
-# Litmus
+# litmus
 
-**Red/green CI for prompt-ware.** Test the behavior your scripts' unit tests can't reach.
+Part of [sous](https://github.com/OrenSegal/sous): tools for checking what coding agents actually do.
+
+**litmus: red/green regression tests for skills, prompts and tool definitions.** A green only ever comes from a check that could have failed.
 
 Skills, system prompts, and tool definitions are real software now: prose, schemas and scripts, shipped to other people's machines. The scripts get tests. The **prose that actually steers the model gets none.** So nobody can answer *"did editing SKILL.md make the agent better or worse?"* except by vibes, and every model upgrade silently re-rolls the dice on every installed skill.
 
-Litmus pins golden tasks, runs them against a change, and returns a red/green diff. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green (when Litmus knows which model produced the run; see below).
+litmus pins golden tasks, grades what the agent did on them, and returns a red/green diff against a baseline. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green (when litmus knows which model produced the run; see below).
 
 > **The load-bearing rule:** a green only ever comes from a check that *could have failed*. A judge (LLM-graded) verdict that can't be falsified against an anchor or a deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
 
-Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `signal-scout`'s hand-built `verify_sources.py`.
+Design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). The `resolves` and `grounded` checks generalize the source verification in [signal-scout](https://github.com/OrenSegal/signal-scout).
 
 ## Status
 
-Full pipeline, **154 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
+Everything below runs offline: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. litmus never reads the key itself.
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 154 passing, no deps
+python3 -m unittest discover -s tests -t .        # the full suite, offline, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
 pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
 ```
 
-| Milestone | Shipped |
-|---|---|
-| M1 engine | pure grader, 11 deterministic assertions, sample-based pass-rates, gate ratchet |
-| M2 capture + report | `claude-code` stream-json adapter (`litmus capture`), self-contained `--html` report |
-| M3 judge | anchored calibration (pass and fail anchors required), `panel: N` majority vote over repeated calls of one judge, `--judge claude` on the CLI; INCONCLUSIVE until falsifiable |
-| M4 matrix | `litmus matrix`: case × model grid, cross-model regression detection |
-| M5 case study | `examples/signal-scout/` suite. Partial: it runs offline on captured runs, and per the spec it hasn't logged a real outcome yet |
-| M6 index (prototype) | `litmus index` ranks models across suites. Tested on fixtures only; no public Hallucination Index run exists yet |
-| packaging | Claude Code plugin (`.claude-plugin/`, `skills/litmus/`, `/litmus:run`, `/litmus:gate`, `/litmus:new-case`, `bin/litmus`), npm installer, CI on Python 3.10-3.13 with a dogfood gate |
+It ships as a Python package (`litmus` CLI) and a Claude Code plugin (`skills/litmus/`, `/litmus:run`, `/litmus:gate`, `/litmus:new-case`, `bin/litmus`), with CI on Python 3.10 to 3.13 that gates this repo's own example suite.
 
 ### What is proven, and what is fixture-only
 
 | Claim | Evidence in this repo |
 |---|---|
-| Assertions, roll-up, gate ratchet, matrix, index and calibrate math behave as documented | Proven offline: 154 unit tests, plus the dogfood gate in CI |
+| Assertions, roll-up, gate ratchet, matrix, index and calibrate math behave as documented | Proven offline: the unit tests, plus the example-suite gate in CI |
 | Crafted suites can't read outside their directory, hang the grader on a regex, or get a vacuous green | Proven offline: `tests/test_hardening.py`, one test per reproduced bug |
 | `litmus capture` turns Claude CLI stream-json into an `AgentRun`, and fails loudly when the CLI fails | Tested against fixture events and a mocked subprocess only. No captured run ships in this repo |
 | `--judge claude` sends what this README says, with tools disabled | Tested against a mocked subprocess and a fake `claude` script. Not run against a real model here |
 | `examples/signal-scout` shows the skill behaving correctly | **Fixture-only.** Its runs are hand-written; `litmus status examples/signal-scout` says so |
 | Judge agreement with human graders | **Not measured.** `litmus calibrate` exists; no labeled set has been run |
-| A public Hallucination Index | **Never run** |
 
 `litmus status <suite>` prints this for any suite: how many runs carry the
 `litmus capture` stamp versus how many are fixtures, which cases declare more
@@ -76,7 +69,7 @@ litmus run     <suite> [--html out.html]  # evaluate, print red/green, exit 1 on
 litmus gate    <suite> --baseline b.json   # diff vs baseline, exit 1 ONLY on regressions
 litmus bless   <suite>                     # snapshot current result as baseline (won't bless a live failure)
 litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cross-model regressions
-litmus index   <suite> [<suite> ...]       # rank models across suites (prototype)
+litmus index   <suite> [<suite> ...]       # rank suites worst-first by green rate
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 litmus calibrate labels.jsonl              # judge vs your pass/fail labels: recall, precision, kappa
 litmus status  <suite>                     # what a green proves: captured vs fixture runs
@@ -90,7 +83,7 @@ input never shows up as an ordinary red.
 
 `gate` also fails when a case in the baseline is missing from the current run,
 or when an assertion that PASSed in the baseline FAILs now, even on a case that
-was already red. Baselines record the Litmus version and judge model they were
+was already red. Baselines record the litmus version and judge model they were
 blessed with, and `gate` warns when the judge differs or the baseline names
 another suite.
 
@@ -104,7 +97,7 @@ No self-grading is enforced: a judge never grades a run its own model produced. 
 
 Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
 
-## Assertions (M1, all deterministic)
+## Assertions
 
 | | |
 |---|---|
@@ -135,7 +128,7 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 }
 ```
 
-Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout), Litmus's first case study, which ports `verify_sources.py`'s guarantees into a suite. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
+Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout), a suite that ports signal-scout's `verify_sources.py` guarantees. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
 
 ## Limitations
 
@@ -144,13 +137,6 @@ Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`
 - **The judge's answer is its reply's first word.** The first non-empty line must start with PASS or FAIL (markdown like `**PASS**` is fine); anything else stops the run with a judge error rather than guessing.
 - **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.
 - **One capture adapter.** `litmus capture` only speaks the Claude Code CLI's stream-json output.
-- **The index has never been run publicly.** It ranks whatever suites you hand it; there is no published leaderboard.
-
-## Next
-
-M1-M4 are in, M5 is partial and M6 is a prototype. Open threads: `agent-sdk` adapter, a hosted gate that runs the
-matrix on every PR, a real public **Hallucination Index** run, and a panel of
-truly independent judges (today `panel: N` repeats the same judge and prompt).
 
 ## License
 

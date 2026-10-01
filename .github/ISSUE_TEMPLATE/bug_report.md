@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Litmus graded something wrong, crashed, or exited with the wrong code
+about: litmus graded something wrong, crashed, or exited with the wrong code
 labels: bug
 ---
 

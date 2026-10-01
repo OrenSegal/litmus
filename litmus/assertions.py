@@ -1,4 +1,4 @@
-"""The assertion library — the heart of Litmus.
+"""The assertion library — the heart of litmus.
 
 Each assertion is a pure function `(config, AgentRun, EvalContext) -> Verdict`.
 Deterministic assertions are trusted unconditionally. The one judge assertion
@@ -455,12 +455,12 @@ def _self_grading(run: AgentRun, ctx: EvalContext) -> Tuple[bool, str]:
     if normalize_model_id(judge_model) is None:
         return False, (
             "no-self-grading check skipped: the judge does not report a model, so "
-            "Litmus cannot tell whether it produced the runs it grades"
+            "litmus cannot tell whether it produced the runs it grades"
         )
     if produced_by is None:
         return False, (
             "no-self-grading check skipped: some graded runs have no meta.model and "
-            "the suite has no target.model, so Litmus cannot tell whether the judge "
+            "the suite has no target.model, so litmus cannot tell whether the judge "
             f"model ({judge_model}) produced them"
         )
     if same_model(judge_model, produced_by):

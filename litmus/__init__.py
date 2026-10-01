@@ -1,4 +1,4 @@
-"""Litmus — red/green CI for prompt-ware.
+"""litmus: red/green regression tests for skills, prompts and tool definitions.
 
 The engine grades an AgentRun (a captured artifact of one agent execution)
 against a set of deterministic assertions. It never calls a model — grading

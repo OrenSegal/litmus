@@ -1,299 +1,315 @@
-# Litmus — Product & Design Spec
+# litmus design
 
-> Red/green CI for prompt-ware. Test the behavior your scripts' unit tests can't reach.
-
-**Status:** design spec (M0). No code yet — review gate before build.
-**Author:** Oren Segal · **License:** MIT · **Repo:** `github.com/OrenSegal/litmus`
-**Lineage:** generalizes `signal-scout/scripts/verify_sources.py` — deterministic checks around model output, so a model's self-assessment is never the last word.
-
----
-
-## 0. One line
-
-Litmus pins golden tasks for a skill (or system prompt, or tool definition), runs them against a change — an edit, a model upgrade, a new dependency — and returns a **red/green diff**. Underneath the wedge it is a general **verification harness for agent claims**: deterministic checks around model output, so a model can never rubber-stamp its own work green.
-
-Tagline options: *"Did editing SKILL.md make the agent better or worse? Stop guessing."* · *"pytest for the prose that steers your agent."*
+litmus pins golden tasks for a skill, system prompt or tool definition, grades
+what an agent actually did on them, and returns a red/green diff against a
+baseline. This document describes how the engine decides what is green. The
+README covers installation and day-to-day use.
 
 ---
 
-## 1. The missing layer
+## 1. The problem
 
-Skills are real software now: **prose + schemas + scripts**, shipped to other people's machines through marketplaces. The scripts get unit tests. The **prose — the part that actually steers the model — gets zero.**
+A skill is prose, schemas and scripts. The scripts get unit tests; the prose,
+which is what steers the model, usually gets none. That leaves three questions
+without a checkable answer:
 
-Three unanswered questions today, all answered only by vibes:
+1. Did this edit to `SKILL.md` make the agent better or worse?
+2. Does the skill still behave on a different model?
+3. When a model grades the output, should anyone believe the grade?
 
-1. *"Did my edit to SKILL.md make the agent better or worse?"* — no red/green, no diff, no gate.
-2. *"Does this skill still work on the new model?"* — **every model upgrade silently re-rolls the dice on every installed skill.** Opus 4.8 → Sonnet 5 → Fable 5, each a fresh, untested roll.
-3. *"Is the eval itself trustworthy?"* — the thing grading the output is a model, and **a model scoring its own work rubber-stamps it.** Self-graded `evidence_quality: 9/10` is worth nothing.
+litmus answers the first two with pinned cases and a baseline ratchet, and the
+third with the rule in §2.
 
-Every skill author ships untested behavior. Anthropic's marketplace, the OpenCode/Cowork/Codex ecosystems — all missing this layer. Whoever builds "pytest for skills" owns it.
-
----
-
-## 2. Why the shape is a *verification* harness, not just a test runner
-
-The naive build is "a script that runs golden tasks and diffs." That is 1x. The 10x is the **trust architecture**, because the hard part isn't running tasks — it's *believing the grade*.
-
-`verify_sources.py` already solved the GTM-specific instance: it never lets a self-graded `evidence_quality` score be the last word. It anchors every claim to something checkable — does the URL resolve, do the cited words actually appear on the page — and it is *page-length-invariant, bot-wall-aware, and self-healing* (`--apply`) so the guarantee doesn't depend on the agent behaving afterward.
-
-Litmus generalizes exactly that discipline:
-
-> **A green only ever comes from a check that could have failed.** Every judge (LLM-graded) verdict must be falsifiable against an anchor or a deterministic guardrail — or it is reported `INCONCLUSIVE`, never `PASS`.
-
-That single rule is the product. It's why Litmus is a *verification* harness and why it generalizes past skills to **any agent claim** (layer 2, §12). `signal-scout` becomes Litmus's first case study, not the other way around.
+The checks in `resolves` and `grounded` generalize the source verification in
+[signal-scout](https://github.com/OrenSegal/signal-scout)'s `verify_sources.py`,
+and `examples/signal-scout/` is a suite for that skill.
 
 ---
 
-## 3. The two layers
+## 2. The load-bearing rule
 
-| | Layer 1 — the wedge | Layer 2 — the general thing |
-|---|---|---|
-| **What** | Regression CI for skills | Verification harness for agent claims |
-| **User** | Every skill/plugin/prompt author | Every team shipping agent output as product |
-| **Sells on** | "stop shipping untested prose" | "prove your agent's claims, don't self-grade them" |
-| **Instance** | Litmus test suites | `verify_sources.py` was the first one, hand-built |
+> **A green only ever comes from a check that could have failed.** A judge
+> (LLM-graded) verdict that cannot be falsified against an anchor or a
+> deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
 
-Ship Layer 1. Let Layer 2 pull through on the same engine.
+Everything below is an application of this rule: deterministic checks are
+preferred, a check with nothing to check is `SKIP` or `INCONCLUSIVE` rather
+than `PASS`, and a judge must prove it can tell a known pass from a known fail
+before its verdict counts.
 
 ---
 
-## 4. Data model
+## 3. Data model
 
 ```
-Suite      ── a folder of Cases + a Baseline (last-green result)
- └─ Case   ── one golden task: input · target · assertions[] · samples · tags
-Target     ── what runs the task: {skill|prompt|tool-def} × model × version
-AgentRun   ── captured artifact of ONE execution (adapter-produced):
-              { tool_calls[], final_output, transcript, cost, tokens, latency }
-Assertion  ── a pure check over an AgentRun → Verdict
-Verdict    ── PASS | FAIL | INCONCLUSIVE | SKIP  (+ detail, + evidence)
-CaseResult ── verdicts for one Case across its samples (+ pass-rate)
-SuiteResult── all CaseResults + target metadata → diffable against Baseline
+Suite       a directory of Cases, their captured runs, and an optional baseline
+ └─ Case    one golden task: input, target, assertions[], samples, tags
+AgentRun    the captured artifact of one execution
+Assertion   a pure check over one AgentRun -> Verdict
+Verdict     PASS | FAIL | INCONCLUSIVE | SKIP, with detail and evidence
+AssertionResult  one assertion over a case's samples, with a pass-rate
+CaseResult  every AssertionResult for a case, rolled up to one status
+SuiteResult every CaseResult, diffable against a baseline
 ```
 
-The engine only ever sees `AgentRun` JSON. It never talks to a model to *produce* the run — that's the adapter's job (§9). This keeps the engine **pure and fully testable offline**, exactly like `verify_sources.py` is pure.
+The engine only reads `AgentRun` JSON. It never asks a model to produce a run;
+that is an adapter's job (§10). This keeps grading deterministic and testable
+offline.
+
+`AgentRun` (every field optional except what the case's assertions read):
+
+```json
+{
+  "output": { "...": "the structured result the agent produced" },
+  "tool_calls": [ { "name": "finalize.py", "input": {} } ],
+  "final_text": "...",
+  "transcript": "...",
+  "cost_usd": 0.03, "tokens": 4200, "latency_ms": 5100,
+  "meta": { "model": "sonnet-5" }
+}
+```
+
+`meta.model` is what `matrix` groups runs by and what the no-self-grading check
+(§6) compares against the judge.
 
 ---
 
-## 5. Assertion taxonomy — the heart
+## 4. Suites and cases
 
-Two tiers. Deterministic assertions are trusted unconditionally. Judge assertions are trusted **only** through the guardrails in §6.
+```
+suite/
+  suite.json               { "name", "target": {skill, model}, "defaults": {samples, target} }
+  cases/*.json | *.yaml    one Case each (YAML needs the optional pyyaml extra)
+  runs/<case-id>/*.json    AgentRun samples for that case
+  runs/<case-id>.json      ...or a single sample
+  *.schema.json            referenced by `schema: { ref: ... }`
+  baseline.json            written by `litmus bless`
+```
 
-### Deterministic (no model, cheap, always trusted)
+A case's runs come from its explicit `runs:` list, else `runs/<id>/*.json`,
+else `runs/<id>.json`. A case's `target` is the suite target merged with its
+own.
 
-| Assertion | Checks | Generalizes |
+Every path a suite names (`runs:`, `schema.ref`, judge `anchors[].output`, and
+the `runs/<case-id>` convention) must resolve inside the suite directory after
+`..` and symlinks are followed. A path that leaves the suite fails that case,
+and the file is never read or sent to a judge.
+
+A malformed suite, case or baseline file is an input error (exit 2), not a red
+result. A malformed run file fails only its case.
+
+---
+
+## 5. Assertion catalog
+
+Each `assert` entry is a single-key object: the key names the assertion, the
+value is its config. An unknown name, or a config that makes the assertion
+raise, is a `FAIL`.
+
+### Deterministic
+
+| Assertion | Config | `PASS` when |
 |---|---|---|
-| `must_run(tool, args?, order?)` | a tool/script was invoked (optionally with matching args, optionally before/after another) | — |
-| `must_not(tool \| field \| phrase)` | a forbidden tool call, output field, or phrase never appeared (e.g. *"must not invent an `opener` for a Segment"*) | — |
-| `schema(path, json-schema)` | output at JSONPath validates against a schema | signal-scout's required-fields |
-| `equals / contains / matches(path, expr)` | deterministic value / substring / regex at a JSONPath | — |
-| `resolves(path)` | every cited URL resolves — bot-wall-aware, Wayback fallback | **`verify_sources.py` link check** |
-| `grounded(claim_path, source_path)` | cited claim's distinguishing words actually appear on the fetched source (page-length-invariant word overlap) | **`verify_sources.py` evidence match** |
-| `budget(cost \| tokens \| latency ≤ X)` | run stayed within envelope | — |
-| `count(path, op, n)` | e.g. "≥ 3 individuals, ≤ 10 total" | — |
+| `must_run` | `"tool"` or `{tool, args?, before?, after?}` | the tool was called (with a superset of `args`, before or after another tool) |
+| `ordering` | `{first, then}` | `first` was first called before `then` |
+| `must_not` | `{tool}`, `{field}` or `{phrase, in?}` | the tool was never called, the JSONPath matches nothing, or the phrase is absent (case-insensitive) from the field named by `in`: `final_text` (default), `transcript` or `output` |
+| `schema` | `{path?, schema}` or `{path?, ref}` | every value at `path` validates against a JSON Schema subset (§12) |
+| `equals` | `{path, value}` | every value at `path` equals `value`; no match is a `FAIL` |
+| `contains` | `{path, value}` | some string at `path` contains `value` |
+| `matches` | `{path, pattern, timeout?}` | some string at `path` matches the regex; the search is capped at `timeout` seconds (default 2) and a timeout is a `FAIL` |
+| `count` | `{path, op, value}` | the number of matches at `path` satisfies `op` (`>=`, `<=`, `==`, `!=`, `>`, `<`) |
+| `budget` | `{cost_usd?, tokens?, latency_ms?}` | every listed metric is within its cap; missing telemetry is `INCONCLUSIVE`, an empty or unknown key is a `FAIL` |
+| `resolves` | `"path"` or `{path}` | every http(s) URL at `path` returns a status below 400; a bot-walled host is `INCONCLUSIVE`; no URLs is `SKIP` |
+| `grounded` | `{claim, source, threshold?}` | each claim's distinguishing words appear on its fetched source page (word overlap at or above `threshold`, default 0.15) |
 
-### Judge (LLM-graded — untrusted until anchored)
+`grounded` pairs claims and sources by position, so unequal counts are a
+`FAIL`. A source that is not an http(s) URL, or is bot-walled, is
+`INCONCLUSIVE`. `resolves` and `grounded` fetch through an injectable
+`Fetcher`, so tests run them offline.
 
-| Assertion | Checks |
+### Judge
+
+| Assertion | Config | `PASS` when |
+|---|---|---|
+| `judge` | `{rubric, anchors, panel?}` | every guardrail in §6 holds and the panel majority says the output meets the rubric |
+
+Push every check that can be deterministic down to a deterministic assertion.
+Most "quality" requirements are a forbidden field, a schema or a resolvable
+citation in disguise.
+
+---
+
+## 6. Trust architecture
+
+A judge is a model, and an unanchored model grade can rubber-stamp anything.
+A `judge` assertion is `PASS` only if all four guardrails hold.
+
+1. **Anchored calibration.** The rubric must carry at least one anchor with
+   `expect: pass` and one with `expect: fail`. Without both, the assertion is
+   `INCONCLUSIVE` and the real output is never graded: a judge that always
+   says PASS agrees with any pass-only set, and one that always says FAIL agrees
+   with any fail-only set. Before grading the real output, the judge grades
+   every anchor. If it misgrades one, its verdict is void and the assertion is
+   `INCONCLUSIVE`.
+2. **Judge panel.** `panel: N` (default 1) calls the judge N times on the real
+   output; a strict majority of PASS votes is a `PASS`, and a tie is a `FAIL`.
+   The bundled `ClaudeJudge` is prompted to refute: look for a concrete
+   violation and answer FAIL, or PASS only if it finds none. The N calls use the
+   same model and prompt, so they are repeated samples, not independent judges.
+3. **Deterministic floor.** A case's status is the worst of its assertions, so
+   a judge `PASS` can never outweigh a deterministic `FAIL` on the same case.
+4. **No self-grading.** The judge sees only `{artifact, rubric}`, never who
+   produced it. Before any judge call, anchors included, the engine compares the
+   judge's model with the model that produced the run: the run's `meta.model`,
+   else the suite or case `target.model`. If they are the same model, the judge
+   is not called and the assertion is `INCONCLUSIVE` with a `self-grading:`
+   reason. This is a property of each run, so a `matrix` suite holding runs from
+   several models leaves only the judge's own runs ungraded.
+
+Model ids are equal after normalizing both: lowercase and trim; keep the part
+after the last `/`; drop a Bedrock `<region>.anthropic.` prefix and `-vN:M`
+suffix, then `-latest`; drop a `-YYYYMMDD` or `@YYYYMMDD` date; turn `.` into
+`-`; drop a leading `claude-`; put name words before version numbers. So
+`claude-haiku-4-5-20251001`, `anthropic/claude-haiku-4-5` and `haiku-4.5` are
+one model, and `claude-3-5-sonnet` equals `sonnet-3.5`. A bare alias with no
+version (`haiku`, `sonnet`, `opus`) matches every model of that family.
+
+If the producing model is unknown (no `meta.model`, or the placeholder
+`default`, and no `target.model`), or the judge reports no model, the check
+cannot run. The run is graded and one warning is printed per command.
+
+**Wiring.** The engine grades only with a judge its caller passes in. The CLI
+builds one only with `--judge claude` (model from `--judge-model`, default
+`claude-haiku-4-5-20251001`). Without it, every `judge` assertion is
+`INCONCLUSIVE` and no model is called. A requested judge that cannot give a
+verdict (CLI missing, non-zero exit, empty or unparseable reply) stops the run
+with exit 2; it never becomes a verdict. The verdict is the first word of the
+reply's first non-empty line, which must be PASS or FAIL.
+
+---
+
+## 7. Non-determinism
+
+Model output is stochastic, so litmus asserts invariants over samples rather
+than exact strings.
+
+- A case declares `samples: N` (default 1) and is graded over the runs on disk.
+- Each assertion reports a pass-rate over the samples that were not `SKIP`. It
+  is `PASS` only when every such sample passed; otherwise it is `FAIL` if any
+  sample failed, else `INCONCLUSIVE`. An assertion whose samples all `SKIP` is
+  `SKIP`.
+- An assertion with a pass-rate strictly between 0 and 1 is flagged flaky.
+- A case is green when at least one assertion is `PASS` and the rest are `PASS`
+  or `SKIP`. A case with fewer runs than its `samples` is `INCONCLUSIVE` unless
+  it already `FAIL`s.
+- Baselines store pass-rates, so `gate` can catch a drift on a case that is
+  still green.
+
+---
+
+## 8. Judge calibration against humans
+
+Anchors show a judge can separate one known pass from one known fail. They do
+not measure how often it agrees with a careful human on real output.
+`litmus calibrate` measures that from a JSONL file of human-labeled outputs:
+recall and precision with FAIL as the positive class, and Cohen's kappa. Rows
+produced by the judge's own model are excluded. `--min-kappa` turns the result
+into a CI check. The labeling protocol is in
+[`calibration/README.md`](calibration/README.md).
+
+---
+
+## 9. CLI
+
+```
+litmus run       <suite> [--html out.html]
+litmus gate      <suite> [--baseline file] [--drift-tol 0.10] [--html out.html]
+litmus bless     <suite> [--out file] [--force]
+litmus matrix    <suite> [--models a,b] [--reference model]
+litmus index     <suite> [<suite> ...]
+litmus capture   "<prompt>" [--model id] [--cwd dir] [--out run.json]
+litmus calibrate <labels.jsonl> [--out file] [--rejudge] [--min-kappa k] [--json]
+litmus status    <suite>
+```
+
+`run`, `gate`, `bless`, `matrix`, `index` and `calibrate` take
+`--judge claude [--judge-model id]` (§6).
+
+Exit codes are the same for every command: **0** green or no regression,
+**1** red (a case `FAIL`ed, a regression, `bless` refused, kappa below
+`--min-kappa`), **2** could not evaluate (malformed input, a path outside the
+suite, an unknown `--reference`, a judge or capture that could not run).
+
+- **`gate`** is a ratchet. It fails on a regression: a case green in the
+  baseline and not green now; an assertion whose pass-rate dropped by more than
+  `--drift-tol` on a case green in both; an assertion that went from `PASS` to
+  `FAIL`, even on a case already red; a case that went to `FAIL` from another
+  non-green status; a new case that is not green; a baseline case missing from
+  the current run. Fixes and new green cases never fail it. It warns when the
+  baseline names another suite or was blessed with a different judge.
+- **`bless`** writes the baseline, stamped with the litmus version and judge
+  model. It refuses while any case is `FAIL` unless given `--force`.
+- **`matrix`** groups each case's runs by `meta.model` and grades each group
+  separately. With `--reference`, a case green on the reference model and not
+  green on another is a cross-model regression.
+- **`index`** ranks suites worst-first by share of green cases, with counts of
+  failing and inconclusive cases.
+- **`status`** reports what a green on a suite proves: how many runs carry the
+  `litmus capture` stamp versus fixtures, cases with fewer runs than `samples`,
+  `judge` assertions, and the judge the baseline was blessed with. The stamp is
+  a field in the run file, so it records provenance; it does not prove it.
+
+---
+
+## 10. Adapters
+
+Adapters produce `AgentRun` JSON; the engine consumes it. Two exist:
+
+| Adapter | How a run is produced |
 |---|---|
-| `judge(rubric, anchors[], panel?)` | a rubric criterion an LLM must grade (*"the opener is genuinely personalized to the person's post, not a mail-merge"*) — subject to every guardrail in §6 |
+| on-disk runs | any tool, or a person, writes `AgentRun` JSON into the suite; the engine grades it as-is |
+| `litmus capture` | runs `claude -p --output-format stream-json --verbose` with the prompt on stdin and folds the stream into an `AgentRun`, stamped `meta.captured_by` and `meta.captured_at` |
 
-Design rule: **push everything you can down to deterministic.** A judge assertion is the last resort, only for genuinely subjective quality. Most "AI quality" is actually a deterministic invariant in disguise (a forbidden field, a schema, a resolvable citation).
+A failed capture (CLI missing, non-zero exit, timeout, no stream events) exits 2
+and writes nothing. `meta.model` is the `--model` given, else the model the CLI
+reports; the reported id is kept as `meta.model_id`.
 
----
-
-## 6. The trust architecture (the moat)
-
-Every eval tool on the market has the same silent failure mode: *the judge is a model, and models rubber-stamp.* Litmus makes a judge verdict **falsifiable or void**. Four guardrails, all required for a judge `PASS`:
-
-1. **Anchored calibration.** Every rubric ships with pinned pass/fail exemplars. The engine enforces this: a `judge` assertion without at least one `expect: pass` anchor and one `expect: fail` anchor returns `INCONCLUSIVE` without calling the judge on the real output. Both kinds are required because a judge that always says PASS agrees with any set of pass-only anchors, and one that always says FAIL agrees with any set of fail-only anchors. Before grading the real output, the judge re-grades the anchors. **If it misgrades a known anchor, its verdict on the real case is void → `INCONCLUSIVE`, never `PASS`.** A judge that can't tell the fixed-good from the fixed-bad doesn't get to bless anything.
-2. **Judge panel.** `panel: N` (default 1) makes N calls of the configured judge on the real output; majority rules; **ties and disagreement default to `FAIL`.** The bundled `ClaudeJudge` prompt asks the model to refute the claim that the artifact meets the criterion: look for a concrete violation, answer FAIL if it finds one, PASS only if it cannot. Not yet implemented: the N calls go to the same judge with the same prompt, so they are repeated samples, not independent judges. With the default panel of 1, a `PASS` rests on the calibration in guardrail 1 plus one refute-prompted call.
-
-   Wiring: the engine only grades with a judge that its caller passes in. The `litmus` command builds one only when run with `--judge claude` (model set by `--judge-model`, default `claude-haiku-4-5-20251001`). Without that flag every `judge` assertion is `INCONCLUSIVE` and no model is called. A requested judge that can't give a verdict (CLI missing, auth failure, empty reply) stops the run with exit code 2; it is never turned into a verdict.
-3. **Deterministic floor.** A judge `PASS` can never override a deterministic `FAIL` on the same case. Checkable truth outranks opinion.
-4. **No self-grading.** The judge model is decoupled from the target model, and the judge sees only `{artifact, rubric}`, never "you produced this." A model may not grade its own homework. Both halves are enforced in code:
-   - *Prompt.* The judge is only ever given the artifact and the rubric.
-   - *Model.* Before any judge call (anchors included), the engine compares the judge's model (`--judge-model`, or the `model` attribute of a judge passed from Python) with the model that produced the run: the run's `meta.model`, or, if the run has none, the suite or case `target.model`. If they are the same model, the judge is not called and the assertion is `INCONCLUSIVE` with a `self-grading:` reason. It is `INCONCLUSIVE` and not a config error because a self-graded verdict is exactly what the invariant below says is "reported, not counted", and because it is a property of each run: a `matrix` suite can hold runs from several models, and only the ones the judge produced are left ungraded.
-   - *Same model* means equal after normalizing both ids: lowercase; keep the part after the last `/`; drop a Bedrock `<region>.anthropic.` prefix and `-vN:M` suffix, then `-latest`; drop a `-YYYYMMDD` or `@YYYYMMDD` date; turn `.` into `-`; drop a leading `claude-`; put name words before version numbers; Bedrock's `<region>.` can be any word, such as `us.` or `global.`. So `claude-haiku-4-5-20251001`, `anthropic/claude-haiku-4-5` and `haiku-4.5` are one model, and `claude-3-5-sonnet` equals `sonnet-3.5`. A bare alias with no version (`haiku`, `sonnet`, `opus`) matches every model of that family, since it can resolve to any of them.
-   - *Unknown model.* If the producing model is unknown (no `meta.model`, or the placeholder `default` that `litmus capture` writes when no `--model` is given, and no `target.model`), or the judge reports no model, the check cannot run. The run is graded as before, and a warning is printed to stderr once per command. `litmus capture` sets `meta.model` to your `--model`, or, without one, to the model the Claude CLI reports, so captured runs are normally known.
-
-> **Invariant:** green comes only from checks that could have failed. Anything a self-grading model could have waved through is reported, not counted.
-
-This is the generalization of "never let the self-graded score be the last word." It is the reason Litmus is defensible where a thin test-runner is not.
+What leaves the machine, and only when asked: `--judge claude` sends the rubric
+and each artifact (anchors included) to `claude -p` over stdin, with tools
+disabled, no MCP servers, no saved session and an empty temporary working
+directory. `litmus capture` sends the prompt and runs the agent with whatever
+tools the user's CLI settings allow. `resolves` and `grounded` fetch the
+http(s) URLs found in a run's output.
 
 ---
 
-## 7. Non-determinism is a first-class citizen
+## 11. Reports
 
-Prose-ware is stochastic — a runner that asserts exact strings is useless. Litmus asserts **invariants over samples**:
-
-- Each case declares `samples: N` (default 3). The case runs N times.
-- Assertions report a **pass-rate**; the case passes if pass-rate ≥ its `threshold` (default 1.0 for deterministic, tunable for judge).
-- A case whose pass-rate is neither ~0 nor ~1 is **flaky** — surfaced explicitly (this is the "find flaky tests" problem, built in, not bolted on).
-- Baselines store pass-rates, so the gate can catch a *drift* (0.95 → 0.70) that a single run would miss.
-
----
-
-## 8. Run modes (CLI)
-
-```
-litmus run     suite/            # run, evaluate, print red/green table
-litmus gate    suite/ --baseline # CI mode: diff vs baseline, exit 1 on any regression
-litmus matrix  suite/ --models opus-4.8,sonnet-5,haiku-4.5   # the "model upgrade" answer
-litmus bless   suite/            # accept current run as new baseline (guardrailed*)
-litmus index   suites/*          # aggregate → Hallucination Index (§12)
-```
-
-`run`, `gate`, `bless`, `matrix` and `index` accept `--judge claude [--judge-model <id>]` to grade `judge` assertions (§6). Without it they make no model calls and `judge` assertions are `INCONCLUSIVE`.
-
-- **`gate`** is the ratchet: a regression = a case that was green and is now red, OR a pass-rate drop past tolerance. The baseline failure count may only shrink (same discipline as Shelfie's arch-lint ratchet). Non-zero exit fails the PR.
-- **`bless`** *cannot* bless a case with a live deterministic `FAIL` — you can't paper over a broken citation by updating the snapshot. (Guardrail borrowed from `jest -u`'s worst footgun, closed.)
-- **`matrix`** is the headline feature for the "every upgrade re-rolls the dice" pain: one command, a model × skill-version heatmap of what regressed.
+- **Terminal:** one line per case, each non-passing assertion with the detail
+  of its first non-passing sample, and a summary line
+  (`N/M green · F failing · I inconclusive · S skipped`). Colour is off when
+  stdout is not a terminal or `NO_COLOR` is set.
+- **HTML** (`--html` on `run` and `gate`): a single self-contained file with
+  the same content, light and dark themes, no external assets.
+- **Gate:** regressions, new failing, removed, fixes, new green, still red.
+- **Matrix:** a case × model grid of statuses.
 
 ---
 
-## 9. Adapters — the integration boundary
+## 12. Non-goals
 
-The engine consumes `AgentRun` JSON. Adapters *produce* it. This boundary is deliberate: it keeps the graded core pure (like `verify_sources.py`) and lets Litmus test any harness that can emit the schema.
-
-| Adapter | How it captures a run | Status |
-|---|---|---|
-| `transcript` | loads a pre-captured `AgentRun` JSON (offline; what the engine's own tests use; what CI uses after a run already happened) | **v0.1 — required** |
-| `claude-code` | `claude -p --output-format stream-json` with the skill loaded; parse `tool_use` events + final message → `AgentRun` | v0.2 |
-| `agent-sdk` | drive the Claude Agent SDK, capture tool calls programmatically | v0.3 |
-| `generic` | any external harness writes the `AgentRun` schema; Litmus grades it | v0.3 |
-
-`AgentRun` schema is the stable contract; adapters are swappable. Live capture is never on the critical path of the graded core.
-
----
-
-## 10. Reports
-
-- **Terminal**: red/green table, regressions first, flaky flagged, exit code.
-- **HTML artifact**: self-contained, theme-aware (reuse the signal-scout report aesthetic + trust-mark footer). Shows per-case verdicts, judge anchor-calibration status, and the *evidence* behind each fail (the dead URL, the failing tool-call, the judge transcript).
-- **Diff view**: `regressions[] · fixes[] · still-red[] · new[]` vs baseline.
-- **Matrix**: model × version heatmap.
-
-Every fail is **explainable** — you see the artifact and the exact check that tripped, never just a score.
-
----
-
-## 11. Dogfood (the tail eats itself)
-
-Two levels, both shipped:
-
-1. The engine has a deterministic **pytest suite** (pytest for the pytest-for-skills). Runs green offline, no API — proves the core the way `verify_sources.py` is provable.
-2. Litmus ships a **Litmus suite for its own `SKILL.md`** — the skill that teaches an agent to author suites is itself pinned by golden cases. Living proof of the concept, and the canonical example.
-
----
-
-## 12. Growth loop, GTM & moat
-
-Follows signal-scout's decided discipline: **skill = distribution, not revenue; service-first; freeze new mechanisms until real outcome data exists.**
-
-**Growth loop — the Hallucination Index.** Run Litmus across popular *public* skills × current models and publish a recurring leaderboard: *which shipped skills regress, on which model, this week.* This is (a) the marketing engine, (b) the layer-2 credibility proof, and (c) a corpus flywheel no competitor can clone late. It's lifted straight from signal-scout's own moat ranking (*recurring index > trust mark > engine-as-lead*).
-
-**Moat ranking (highest → lowest):**
-1. **Regression-corpus flywheel** — every run of every user's suite is labeled behavioral data. Compounds. Uncopyable late.
-2. **Recurring Hallucination Index** — public, habitual, cited.
-3. **Trust architecture** (anchored judge, §6) — the hard-to-copy engineering.
-4. **The CLI itself** — a lead, not a moat. Free and open.
-
-**Monetization ladder (do NOT build yet — freeze until one real run has logged outcomes):**
-- Free OSS: CLI + skill (`litmus run/gate/matrix`).
-- Hosted CI: runs the matrix on every PR, dashboards drift, gates merges. $ / seat or / repo.
-- Private index: a company's own skills benchmarked continuously against model releases.
-- **Claim-verification API** (layer 2): `verify_sources.py` as a service — the general endpoint the essay points at. Biggest market, last to build.
-
-**First case study:** `signal-scout` — port its hand-built `verify_sources.py` guarantees into a Litmus suite (`grounded`, `resolves`, `must_run finalize.py`, `must_not invent opener`, `schema`). Proof the general tool subsumes the specific one.
-
----
-
-## 13. Packaging & naming
-
-**Name:** Litmus. CLI: `litmus`. Instantly-legible red/green metaphor; a "litmus test" *is* pass/fail.
-
-**Collision plan** (verify before publish): `litmus` on npm/PyPI is likely taken. Keep the CLI command `litmus`; publish under a distinct dist name — preferred `litmus-ci`, fallback scoped `@orensegal/litmus`. Repo stays `OrenSegal/litmus`.
-
-**Layout** (host-agnostic, mirrors signal-scout 1.5+ Cowork/Codex/OpenCode compatibility):
-
-```
-litmus/
-  pyproject.toml            # pip install litmus-ci → `litmus` entry point
-  package.json              # npx installer (mirrors signal-scout bin/install.js)
-  .claude-plugin/
-    plugin.json · marketplace.json
-  skills/litmus/
-    SKILL.md                # teaches an agent to author + run suites
-    references/             # assertion taxonomy, trust-architecture, case-format
-    scripts/                # engine entry points
-  litmus/                   # the Python engine (pure)
-    case.py · assertions.py · runner.py · gate.py · report.py
-    adapters/{transcript,claude_code,agent_sdk}.py
-  examples/signal-scout/    # first case-study suite
-  tests/                    # engine pytest suite (green offline)
-  README.md · BUSINESS.md · COMPLIANCE.md · AGENTS.md · LICENSE
-```
-
-**Case file format** (`.litmus.yaml`):
-
-```yaml
-case: classifies-solo-maintainer-as-individual
-target: { skill: signal-scout, model: sonnet-5 }
-samples: 3
-input: "https://example-dev-tool.com — solo maintainer active on GitHub & HN"
-assert:
-  - must_run:   finalize.py
-  - schema:     { path: "$", ref: signal-scout.schema.json }
-  - must_not:   { field: "$.segments[*].opener" }        # segments never get openers
-  - equals:     { path: "$.individuals[0].type", value: "Individual" }
-  - resolves:   { path: "$.individuals[*].source_url" }
-  - grounded:   { claim: "$..evidence", source: "$..source_url" }
-  - judge:
-      rubric:  "The opener references a specific thing the person actually posted."
-      anchors: [ { output: fixtures/good_opener.json, expect: pass },
-                 { output: fixtures/mailmerge.json,   expect: fail } ]
-      panel:   3
-```
-
----
-
-## 14. Build milestones
-
-| M | Deliverable | Runs green without an API key? |
-|---|---|---|
-| M0 | **this spec** | — |
-| M1 | engine core + `transcript` adapter + all deterministic assertions + pytest | **yes** |
-| M2 | `run` / `gate` / `bless` + terminal report + baseline diff | yes (transcript fixtures) |
-| M3 | anchored judge + panel + calibration | needs judge model |
-| M4 | `matrix` + HTML report + `claude-code` live adapter | needs model |
-| M5 | `examples/signal-scout/` case-study suite | partial |
-| M6 | Hallucination Index prototype (one public run) | needs models |
-
-**v0.1 non-goals:** hosted service, dashboards, the claim-verification API, non-Claude adapters, a GUI. Freeze per signal-scout discipline until M5 logs a real outcome.
-
----
-
-## 15. Design principles
-
-1. **Green only from falsifiable checks.** If a self-grading model could wave it through, it's `INCONCLUSIVE`, not `PASS`.
-2. **Engine stays pure.** It grades `AgentRun` JSON; it never calls a model. Fully testable offline.
-3. **Assert invariants, not strings.** Stochastic output demands sample-based pass-rates.
-4. **Self-heal like `--apply`.** Where safe, fix/annotate rather than just flag.
-5. **Deterministic outranks judged.** Checkable truth beats opinion, always.
-6. **Host-agnostic.** Claude Code, Cowork, Codex, OpenCode — one `AgentRun` contract.
-7. **Freeze until data.** No new mechanism until a real run logs a real outcome.
-
----
-
-## 16. Open questions (for review)
-
-- **`AgentRun` schema stability** — how reliably does `claude -p --output-format stream-json` expose tool-call args across versions? (De-risked by making `transcript` the primary adapter.)
-- **Judge cost** — the panel multiplies calls; cap via "deterministic-first, judge only what's left."
-- **Skill loading in headless mode** — confirm a skill can be force-loaded for a `-p` run.
-- **Name collision** — lock the dist name before any publish.
-- **Where does the corpus live** — flywheel data governance / privacy (COMPLIANCE.md), opt-in like signal-scout.
-
----
-
-*Review gate: approve §5–6 (assertion taxonomy + trust architecture) and §13 (naming/packaging) and I build M1 — the pure engine + deterministic assertions + pytest, green offline, no API key.*
+- **Running models during grading.** The engine is pure; only `capture` and the
+  opt-in judge call a model.
+- **Hosting.** litmus stores nothing outside the files you point it at and
+  sends nothing anywhere except as listed in §10.
+- **Other capture formats.** `capture` speaks only the Claude CLI's
+  stream-json; any other harness can write `AgentRun` JSON directly.
+- **Full JSON Schema or JSONPath.** `schema` supports `type`, `required`,
+  `properties`, `additionalProperties`, `items`, `enum`, `minItems`,
+  `maxItems`, `minimum`, `maximum`, `minLength` and `maxLength`. JSONPath
+  supports `$`, `.field`, `[n]`, `[*]` and `..field`.
+- **Semantic grounding.** `grounded` is lexical: it checks that a claim's words
+  are on the page, not that the page supports the claim.
+- **Independent judges.** `panel: N` repeats one model and prompt.
+- **Runtime dependencies.** The engine is stdlib-only; YAML cases need the
+  optional `pyyaml` extra.

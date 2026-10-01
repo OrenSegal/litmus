@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. Litmus has one rule that every change must keep:
+Thanks for helping. litmus has one rule that every change must keep:
 **a green only ever comes from a check that could have failed.**
 
 ## Setup

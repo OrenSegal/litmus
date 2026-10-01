@@ -10,4 +10,4 @@ labels: enhancement
 
 **How it could fail**
 
-<!-- Litmus only accepts checks that can go red. Describe an AgentRun that this would FAIL. -->
+<!-- litmus only accepts checks that can go red. Describe an AgentRun that this would FAIL. -->

@@ -1,9 +1,9 @@
 ---
-description: Gate a Litmus suite against its blessed baseline; fails only on regressions, never on fixes.
+description: Gate a litmus suite against its blessed baseline; fails only on regressions, never on fixes.
 argument-hint: <suite-dir> [--baseline baseline.json] [--drift-tol 0.10] [--judge claude]
 ---
 
-Diff the current result of a Litmus suite against its baseline, using the
+Diff the current result of a litmus suite against its baseline, using the
 engine bundled with this plugin:
 
 ```bash

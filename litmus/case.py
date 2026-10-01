@@ -14,7 +14,7 @@ engine never needs YAML — it's author-side sugar only.
 
 Every path a suite names (`runs:`, `schema.ref`, judge `anchors[].output`, and
 the `runs/<case-id>` convention) must stay inside the suite directory after
-symlinks are resolved; see `suite_path`. A crafted case can't make Litmus read,
+symlinks are resolved; see `suite_path`. A crafted case can't make litmus read,
 or send to a judge, a file outside its suite.
 """
 

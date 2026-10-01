@@ -1,9 +1,9 @@
 ---
-description: Author a new Litmus case (a golden task plus assertions) in a suite, then run it to prove it can go red.
+description: Author a new litmus case (a golden task plus assertions) in a suite, then run it to prove it can go red.
 argument-hint: <suite-dir> <case-id> [what the case should check]
 ---
 
-Add one new case to a Litmus suite. Arguments: `$ARGUMENTS` (the suite
+Add one new case to a litmus suite. Arguments: `$ARGUMENTS` (the suite
 directory, the case id, then optionally what the case should check).
 
 1. Read `${CLAUDE_PLUGIN_ROOT}/skills/litmus/references/case-format.md` and
