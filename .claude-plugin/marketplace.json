@@ -7,7 +7,7 @@
       "name": "litmus",
       "source": "./",
       "description": "Red/green CI for prompt-ware — test the behavior your skill's scripts can't.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "MIT",
       "keywords": ["testing", "eval", "regression", "skills", "ci", "verification"]
     }

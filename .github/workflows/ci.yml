@@ -16,3 +16,7 @@ jobs:
         run: python -m unittest discover -s tests -t .
       - name: Dogfood — gate the example suite against its baseline
         run: python -m litmus.cli gate examples/signal-scout --baseline examples/signal-scout/baseline.json
+      - name: Validate plugin manifest
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate .
