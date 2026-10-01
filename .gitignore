@@ -7,3 +7,9 @@ dist/
 .venv/
 venv/
 .DS_Store
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/

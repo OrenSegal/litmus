@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Dict, Optional, Protocol
+from typing import Dict, List, Optional, Protocol, Tuple
 from urllib.parse import urlparse
 
 BOT_WALLED_DOMAINS = ("reddit.com", "x.com", "twitter.com", "linkedin.com", "glassdoor.com", "indeed.com")
@@ -65,15 +65,15 @@ class _TextExtractor(HTMLParser):
         self._chunks: list[str] = []
         self._skip = False
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         if tag in ("script", "style"):
             self._skip = True
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in ("script", "style"):
             self._skip = False
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if not self._skip:
             self._chunks.append(data)
 

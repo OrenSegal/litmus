@@ -31,7 +31,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from . import __version__
 from .assertions import EvalContext, JudgeError, JudgeFn

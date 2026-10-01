@@ -26,7 +26,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from .assertions import JudgeError
 

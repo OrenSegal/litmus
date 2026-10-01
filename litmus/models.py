@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 
 class Status(str, Enum):
@@ -37,7 +37,7 @@ class Status(str, Enum):
         return self is Status.PASS
 
 
-def worst(statuses: List["Status"]) -> "Status":
+def worst(statuses: Sequence["Status"]) -> "Status":
     if not statuses:
         return Status.SKIP
     return min(statuses, key=lambda s: s.rank)
