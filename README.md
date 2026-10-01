@@ -8,7 +8,7 @@ Litmus pins golden tasks, runs them against a change, and returns a red/green di
 
 > **The load-bearing rule:** a green only ever comes from a check that *could have failed*. A judge (LLM-graded) verdict that can't be falsified against an anchor or a deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
 
-Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `signal-scout`'s hand-built `verify_sources.py`.
+Full design: [`LITMUS_SPEC.md`](https://github.com/OrenSegal/litmus/blob/main/LITMUS_SPEC.md). Lineage: this generalizes `signal-scout`'s hand-built `verify_sources.py`.
 
 ## Status
 
@@ -52,7 +52,7 @@ litmus calibrate labels.jsonl              # judge vs your pass/fail labels: rec
 
 `run`, `gate`, `bless`, `matrix`, `index` and `calibrate` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
 
-No self-grading is enforced: a judge never grades a run its own model produced. The producing model is the run's `meta.model`, or the suite or case `target.model` if the run has none. If it is the same model as `--judge-model` (compared after normalizing ids, so `claude-haiku-4-5-20251001` and `haiku-4.5` match, and a bare alias like `haiku` matches every haiku), the judge is not called and that assertion is `INCONCLUSIVE`. Note that the default judge is Haiku 4.5, so pass a different `--judge-model` when Haiku 4.5 is the model under test. If the producing model is unknown, the run is graded and one warning goes to stderr per command. The exact rule is in [`LITMUS_SPEC.md`](./LITMUS_SPEC.md) §6.
+No self-grading is enforced: a judge never grades a run its own model produced. The producing model is the run's `meta.model`, or the suite or case `target.model` if the run has none. If it is the same model as `--judge-model` (compared after normalizing ids, so `claude-haiku-4-5-20251001` and `haiku-4.5` match, and a bare alias like `haiku` matches every haiku), the judge is not called and that assertion is `INCONCLUSIVE`. Note that the default judge is Haiku 4.5, so pass a different `--judge-model` when Haiku 4.5 is the model under test. If the producing model is unknown, the run is graded and one warning goes to stderr per command. The exact rule is in [`LITMUS_SPEC.md`](https://github.com/OrenSegal/litmus/blob/main/LITMUS_SPEC.md) §6.
 
 Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
 
@@ -87,11 +87,11 @@ Non-determinism is first-class: a case runs over N samples, each assertion repor
 }
 ```
 
-Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout), Litmus's first case study, which ports `verify_sources.py`'s guarantees into a suite. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
+Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](https://github.com/OrenSegal/litmus/tree/main/examples/signal-scout), Litmus's first case study, which ports `verify_sources.py`'s guarantees into a suite. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
 
 ## Limitations
 
-- **Judge agreement with a human has no published number yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. `litmus calibrate` computes that (recall, precision and Cohen's kappa against your labels; protocol in [`calibration/`](./calibration)), but no labeled set has been run and published.
+- **Judge agreement with a human has no published number yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. `litmus calibrate` computes that (recall, precision and Cohen's kappa against your labels; protocol in [`calibration/`](https://github.com/OrenSegal/litmus/tree/main/calibration)), but no labeled set has been run and published.
 - **`panel: N` is not independent.** It repeats the same judge model and prompt N times, so it smooths sampling noise but shares every blind spot.
 - **The judge's answer is read from the first line of its reply.** A first line containing the word PASS counts as PASS. The prompt asks for a single word, but a chatty reply could be misread.
 - **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.

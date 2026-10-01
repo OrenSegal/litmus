@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Red/green CI for prompt-ware. Test the behavior your scripts' unit tests can't reach."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Oren Segal" }]
 keywords = ["claude-code", "skills", "llm", "eval", "regression-testing", "prompt-engineering", "ci"]
 dependencies = []  # engine is stdlib-only and dependency-free by design
