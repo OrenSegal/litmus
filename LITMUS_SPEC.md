@@ -124,7 +124,8 @@ raise, is a `FAIL`.
 
 `grounded` pairs claims and sources by position, so unequal counts are a
 `FAIL`. A source that is not an http(s) URL, or is bot-walled, is
-`INCONCLUSIVE`. `resolves` and `grounded` fetch through an injectable
+`INCONCLUSIVE`; if no source is an http(s) URL the assertion is `SKIP`.
+`resolves` and `grounded` fetch through an injectable
 `Fetcher`, so tests run them offline.
 
 ### Judge

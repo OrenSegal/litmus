@@ -14,7 +14,7 @@ import unittest
 from unittest import mock
 
 from litmus.cli import _bounded_float
-from litmus.fetch import is_http_url
+from litmus.fetch import FetchResult, UrllibFetcher, is_http_url
 from litmus.model_ids import UNKNOWN_MODEL, normalize_model_id
 from litmus.models import AgentRun, AssertionResult, CaseResult, Status, SuiteResult, ToolCall, Verdict
 from litmus.report import first_problem, rate_label, summary_line
@@ -61,6 +61,12 @@ class TestIsHttpUrl(unittest.TestCase):
             self.assertTrue(is_http_url(url), url)
         for value in ("ftp://a.example", "file:///etc/passwd", "a.example", "", None, 3, ["https://a"]):
             self.assertFalse(is_http_url(value), value)
+
+    def test_the_fetcher_refuses_anything_else_without_touching_the_network(self):
+        with mock.patch("litmus.fetch.urllib.request.urlopen") as urlopen:
+            for url in ("HTTP://127.0.0.1/", "ftp://a.example", "file:///etc/passwd"):
+                self.assertEqual(UrllibFetcher().fetch(url), FetchResult(None, ""), url)
+        urlopen.assert_not_called()
 
 
 class TestUnknownModel(unittest.TestCase):
