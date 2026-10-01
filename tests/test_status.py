@@ -52,7 +52,7 @@ class TestStatus(unittest.TestCase):
         self.assertIsNone(json.loads((self.suite / "baseline.json").read_text())["litmus"]["judge"])
         code, out, _ = _main(["status", str(self.suite)])
         self.assertEqual(code, 0)
-        self.assertIn("with judge None", out)
+        self.assertIn("with no judge", out)
 
     def test_missing_suite_exits_2(self):
         code, _, err = _main(["status", str(self.suite / "nope")])

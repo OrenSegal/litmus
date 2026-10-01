@@ -128,6 +128,7 @@ def render_status(st: SuiteStatus) -> str:
     elif not st.baseline:
         lines.append("  - baseline.json predates 0.2.0 (no litmus stamp); re-bless to record the judge used.")
     else:
-        lines.append(f"  - baseline blessed by litmus {st.baseline.get('version')} "
-                     f"with judge {st.baseline.get('judge')!r}.")
+        judge = st.baseline.get("judge")
+        with_judge = f"with judge {judge}" if judge else "with no judge (judge assertions were INCONCLUSIVE)"
+        lines.append(f"  - baseline blessed by litmus {st.baseline.get('version')} {with_judge}.")
     return "\n".join(lines)
