@@ -38,9 +38,9 @@ CI runs all of these on Python 3.10 to 3.13.
 - **Paths from suites go through `litmus.case.suite_path`.** Nothing a case
   names may be read from outside its suite.
 - **Exit codes are API:** 0 green, 1 red or regression, 2 could not evaluate.
-- Bump the version in all five places together: `pyproject.toml`,
-  `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
-  and `litmus/__init__.py`. A test checks that they agree.
+- The version lives in `litmus/__init__.py`; `pyproject.toml` reads it from
+  there. Change it there and in `package.json`, `.claude-plugin/plugin.json`
+  and `.claude-plugin/marketplace.json`; a test fails until all agree.
 - Add a line under the next version in `CHANGELOG.md`.
 
 ## Skill trigger evals
@@ -58,8 +58,8 @@ claude plugin eval . --runs 3 --max-cost-usd 2
 
 ## Releases
 
-Tag `vX.Y.Z` on `main`. The release workflow checks the tag against every
-manifest, runs the tests, builds the sdist and wheel, and attaches them to a
+Tag `vX.Y.Z` on `main`. The release workflow checks the tag against
+`litmus.__version__`, runs the tests, builds the sdist and wheel, and attaches them to a
 GitHub Release. Nothing is published to PyPI or npm automatically.
 
 ## Security

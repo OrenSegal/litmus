@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "litmus-ci"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Red/green regression tests for skills, prompts and tool definitions. A green only ever comes from a check that could have failed."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,7 +27,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
     "Typing :: Typed",
 ]
-dependencies = []  # engine is stdlib-only and dependency-free by design
+dependencies = []
 
 [project.optional-dependencies]
 yaml = ["pyyaml>=6"]   # optional: author cases in YAML instead of JSON
@@ -41,6 +41,9 @@ Changelog = "https://github.com/OrenSegal/litmus/blob/main/CHANGELOG.md"
 
 [project.scripts]
 litmus = "litmus.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "litmus.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["litmus*"]

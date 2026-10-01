@@ -502,12 +502,17 @@ class TestVersionsAgree(unittest.TestCase):
 
         from litmus import __version__
 
+        # litmus/__init__.py is the source of truth. pyproject reads it at build
+        # time instead of repeating it; the JSON manifests must repeat it, so
+        # they are checked against it.
         pyproject = (ROOT / "pyproject.toml").read_text()
-        py_version = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
+        self.assertIsNone(re.search(r'^version\s*=\s*"', pyproject, re.M), "pyproject must not hardcode a version")
+        self.assertRegex(pyproject, r'(?m)^dynamic = \["version"\]$')
+        self.assertRegex(pyproject, r'(?m)^version = \{ attr = "litmus\.__version__" \}$')
         package = json.loads((ROOT / "package.json").read_text())["version"]
         plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["version"]
         market = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text())["plugins"][0]["version"]
-        self.assertEqual({__version__, py_version, package, plugin, market}, {__version__})
+        self.assertEqual({__version__, package, plugin, market}, {__version__})
 
     def test_version_flag_matches_package_version(self):
         from litmus import __version__
