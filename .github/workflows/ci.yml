@@ -16,3 +16,12 @@ jobs:
         run: python -m unittest discover -s tests -t .
       - name: Dogfood — gate the example suite against its baseline
         run: python -m litmus.cli gate examples/signal-scout --baseline examples/signal-scout/baseline.json
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dogfood — the composite action gates the same suite
+        uses: ./
+        with:
+          suite: examples/signal-scout
