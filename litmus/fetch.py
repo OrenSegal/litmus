@@ -86,9 +86,12 @@ class UrllibFetcher:
 
     def fetch(self, url: str, timeout: int = 10) -> FetchResult:
         domain = bot_walled_host(url)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (litmus verifier)"})
+        if urlparse(url).scheme not in ("http", "https"):
+            # URLs come from model output; never let one open file:// or ftp://.
+            return FetchResult(None, "")
+        req = urllib.request.Request(_canonicalize(url), headers={"User-Agent": "Mozilla/5.0 (litmus verifier)"})
         try:
-            with urllib.request.urlopen(_canonicalize(url), timeout=timeout) as resp:  # type: ignore[arg-type]
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 status = resp.status
                 charset = resp.headers.get_content_charset() or "utf-8"
                 raw = resp.read(2_000_000).decode(charset, errors="ignore")
