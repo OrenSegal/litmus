@@ -7,6 +7,7 @@
     litmus index  <suite> [<suite> ...]       # Hallucination Index leaderboard
     litmus capture "<prompt>" --out run.json  # capture a live AgentRun via the Claude CLI
     litmus calibrate <labels.jsonl>           # judge vs human labels: recall, precision, kappa
+    litmus status <suite>                     # what a green proves: captured vs fixture runs
     litmus version
 
 Exit codes, for every command:
@@ -140,6 +141,13 @@ def _capture(args: argparse.Namespace) -> int:
         print(f"captured AgentRun → {args.out}")
     else:
         print(text)
+    return 0
+
+
+def _status(args: argparse.Namespace) -> int:
+    from .status import render_status, suite_status
+
+    print(render_status(suite_status(Path(args.suite))))
     return 0
 
 
@@ -283,6 +291,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_cap.add_argument("--cwd", help="working dir the CLI resolves skills from")
     p_cap.add_argument("--out", help="write the AgentRun JSON here (default: stdout)")
     p_cap.set_defaults(func=_capture)
+
+    p_status = sub.add_parser("status", help="what a green proves: captured vs fixture runs, judge coverage")
+    p_status.add_argument("suite", help="path to a suite directory")
+    p_status.set_defaults(func=_status)
 
     p_cal = sub.add_parser("calibrate", parents=[judging],
                            help="measure judge agreement with human pass/fail labels")

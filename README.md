@@ -12,11 +12,11 @@ Full design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). Lineage: this generalizes `si
 
 ## Status
 
-Full pipeline, **102 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
+Full pipeline, **154 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # 102 passing, no deps
+python3 -m unittest discover -s tests -t .        # 154 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
 
 pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
@@ -30,7 +30,38 @@ pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` com
 | M4 matrix | `litmus matrix`: case × model grid, cross-model regression detection |
 | M5 case study | `examples/signal-scout/` suite. Partial: it runs offline on captured runs, and per the spec it hasn't logged a real outcome yet |
 | M6 index (prototype) | `litmus index` ranks models across suites. Tested on fixtures only; no public Hallucination Index run exists yet |
-| packaging | Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, CI dogfood |
+| packaging | Claude Code plugin (`.claude-plugin/`, `skills/litmus/`, `/litmus:run`, `/litmus:gate`, `/litmus:new-case`, `bin/litmus`), npm installer, CI on Python 3.10-3.13 with a dogfood gate |
+
+### What is proven, and what is fixture-only
+
+| Claim | Evidence in this repo |
+|---|---|
+| Assertions, roll-up, gate ratchet, matrix, index and calibrate math behave as documented | Proven offline: 154 unit tests, plus the dogfood gate in CI |
+| Crafted suites can't read outside their directory, hang the grader on a regex, or get a vacuous green | Proven offline: `tests/test_hardening.py`, one test per reproduced bug |
+| `litmus capture` turns Claude CLI stream-json into an `AgentRun`, and fails loudly when the CLI fails | Tested against fixture events and a mocked subprocess only. No captured run ships in this repo |
+| `--judge claude` sends what this README says, with tools disabled | Tested against a mocked subprocess and a fake `claude` script. Not run against a real model here |
+| `examples/signal-scout` shows the skill behaving correctly | **Fixture-only.** Its runs are hand-written; `litmus status examples/signal-scout` says so |
+| Judge agreement with human graders | **Not measured.** `litmus calibrate` exists; no labeled set has been run |
+| A public Hallucination Index | **Never run** |
+
+`litmus status <suite>` prints this for any suite: how many runs carry the
+`litmus capture` stamp versus how many are fixtures, which cases declare more
+`samples` than they have runs, how many `judge` assertions need `--judge`, and
+which judge the baseline was blessed with. The stamp is self-declared (a field in
+the run JSON), so it records provenance; it does not prove it.
+
+To turn a fixture-only case into evidence about a live agent (this calls the
+Claude CLI and costs money; nothing in CI does it):
+
+```bash
+scripts/capture-real-run.sh examples/signal-scout classify-solo-maintainer-as-individual \
+    sonnet-5 path/to/signal-scout-skill
+```
+
+It reads the case's `input` as the prompt, runs `litmus capture` in the skill's
+directory, writes `runs/<case>/live-<model>.json` (never overwriting), then prints
+`litmus run` and `litmus status`. It does not bless anything: a red live run is
+the result. Commit the run file if you want the evidence kept.
 
 ## How it works
 
@@ -48,7 +79,24 @@ litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cros
 litmus index   <suite> [<suite> ...]       # rank models across suites (prototype)
 litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
 litmus calibrate labels.jsonl              # judge vs your pass/fail labels: recall, precision, kappa
+litmus status  <suite>                     # what a green proves: captured vs fixture runs
 ```
+
+Exit codes are the same for every command: **0** green / no regression, **1** red
+(a case FAILed, a regression, `bless` refused), **2** the suite could not be
+evaluated: a malformed suite, case or baseline file, a path outside the suite,
+an unknown `--reference`, or a judge or capture that could not run. A broken
+input never shows up as an ordinary red.
+
+`gate` also fails when a case in the baseline is missing from the current run,
+or when an assertion that PASSed in the baseline FAILs now, even on a case that
+was already red. Baselines record the Litmus version and judge model they were
+blessed with, and `gate` warns when the judge differs or the baseline names
+another suite.
+
+Inside Claude Code, the plugin adds `/litmus:run`, `/litmus:gate` and
+`/litmus:new-case`, and puts `bin/litmus` on the Bash tool's PATH, so no pip
+install is needed there.
 
 `run`, `gate`, `bless`, `matrix`, `index` and `calibrate` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
 
@@ -93,7 +141,7 @@ Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`
 
 - **Judge agreement with a human has no published number yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. `litmus calibrate` computes that (recall, precision and Cohen's kappa against your labels; protocol in [`calibration/`](./calibration)), but no labeled set has been run and published.
 - **`panel: N` is not independent.** It repeats the same judge model and prompt N times, so it smooths sampling noise but shares every blind spot.
-- **The judge's answer is read from the first line of its reply.** A first line containing the word PASS counts as PASS. The prompt asks for a single word, but a chatty reply could be misread.
+- **The judge's answer is its reply's first word.** The first non-empty line must start with PASS or FAIL (markdown like `**PASS**` is fine); anything else stops the run with a judge error rather than guessing.
 - **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.
 - **One capture adapter.** `litmus capture` only speaks the Claude Code CLI's stream-json output.
 - **The index has never been run publicly.** It ranks whatever suites you hand it; there is no published leaderboard.
