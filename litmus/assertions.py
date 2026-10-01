@@ -20,9 +20,10 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import schema as schema_mod
 from .case import suite_path
-from .fetch import Fetcher, UrllibFetcher, grounding_ratio
+from .fetch import Fetcher, UrllibFetcher, grounding_ratio, is_http_url
 from .regex import RegexTimeout, search_any
 from .jsonpath import exists, resolve
+from .model_ids import normalize_model_id, same_model
 from .models import AgentRun, Status, Verdict
 
 # A judge callable: (artifact, rubric) -> bool  (True == meets the criterion).
@@ -70,21 +71,17 @@ def assertion(name: str) -> Callable[[AssertionFn], AssertionFn]:
 def run_assertion(entry: Dict[str, Any], run: AgentRun, ctx: EvalContext) -> Verdict:
     """Dispatch one `assert:` entry (a single-key dict) to its handler."""
     if not isinstance(entry, dict) or len(entry) != 1:
-        return Verdict("<malformed>", _fail_status(), f"assert entry must be a single-key dict, got {entry!r}")
+        return Verdict("<malformed>", Status.FAIL, f"assert entry must be a single-key dict, got {entry!r}")
     name, config = next(iter(entry.items()))
     handler = _REGISTRY.get(name)
     if handler is None:
-        return Verdict(name, _fail_status(), f"unknown assertion '{name}'")
+        return Verdict(name, Status.FAIL, f"unknown assertion '{name}'")
     try:
         return handler(config, run, ctx)
     except JudgeError:
         raise
     except Exception as exc:  # a broken assertion config is a failure, never a crash
-        return Verdict(name, _fail_status(), f"assertion errored: {exc}")
-
-
-def _fail_status() -> Status:
-    return Status.FAIL
+        return Verdict(name, Status.FAIL, f"assertion errored: {exc}")
 
 
 # --------------------------------------------------------------------------- #
@@ -252,12 +249,12 @@ def budget(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 
 
 # --------------------------------------------------------------------------- #
-# grounding assertions (verify_sources.py, generalized) — network via ctx.fetcher
+# grounding assertions: network I/O only through ctx.fetcher
 # --------------------------------------------------------------------------- #
 @assertion("resolves")
 def resolves(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     cfg = {"path": config} if isinstance(config, str) else dict(config)
-    urls = [u for u in resolve(cfg["path"], run.output) if isinstance(u, str) and u.startswith(("http://", "https://"))]
+    urls = [u for u in resolve(cfg["path"], run.output) if is_http_url(u)]
     if not urls:
         return Verdict.skipped("resolves", f"no fetchable URLs at {cfg['path']}")
     dead, walled = [], []
@@ -292,7 +289,7 @@ def grounded(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     walled: List[str] = []
     unfetchable: List[Any] = []
     for claim, source in pairs:
-        if not isinstance(source, str) or not source.startswith(("http://", "https://")):
+        if not is_http_url(source):
             unfetchable.append(source)
             continue
         res = ctx.fetcher.fetch(source, ctx.timeout)
@@ -366,74 +363,8 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 
 # --------------------------------------------------------------------------- #
 # no self-grading (§6 guardrail 4): the judge model must not be the model that
-# produced the run. Pure string comparison on normalized model ids.
+# produced the run.
 # --------------------------------------------------------------------------- #
-# Values that name no model. `litmus capture` writes "default" when it was not
-# told which model to use.
-_UNKNOWN_MODELS = {"", "default", "unknown", "none", "null"}
-_DATE_SUFFIX = re.compile(r"[-@]\d{8}$")
-_BEDROCK_VERSION = re.compile(r"-v\d+(:\d+)?$")
-_BEDROCK_PREFIX = re.compile(r"^(?:[a-z]+\.)?anthropic\.")
-
-
-def normalize_model_id(model: Any) -> Optional[str]:
-    """Reduce a model id to a comparable key, or None if it names no model.
-
-    Rules, applied in order:
-      1. lowercase and trim; "", "default", "unknown", "none" and "null" mean unknown
-      2. keep only the part after the last "/" (drops "anthropic/", "models/")
-      3. drop a Bedrock "<region>.anthropic." or "anthropic." prefix
-      4. drop a Bedrock "-vN" or "-vN:M" suffix, then "-latest"
-      5. drop a date suffix "-YYYYMMDD" or "@YYYYMMDD"
-      6. turn "." into "-" and drop a leading "claude-"
-      7. put the name words before the version numbers, so the older
-         "3-5-sonnet" order equals "sonnet-3-5"
-
-    So "claude-haiku-4-5-20251001", "anthropic/claude-haiku-4-5",
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0" and "haiku-4.5" all become
-    "haiku-4-5". A bare alias such as "haiku" stays "haiku".
-    """
-    if model is None:
-        return None
-    m = str(model).strip().lower()
-    if m in _UNKNOWN_MODELS:
-        return None
-    m = m.rsplit("/", 1)[-1]
-    m = _BEDROCK_PREFIX.sub("", m)
-    m = _BEDROCK_VERSION.sub("", m)
-    if m.endswith("-latest"):
-        m = m[: -len("-latest")]
-    m = _DATE_SUFFIX.sub("", m)
-    m = m.replace(".", "-")
-    if m.startswith("claude-"):
-        m = m[len("claude-"):]
-    parts = [p for p in m.split("-") if p]
-    words = [p for p in parts if not p.isdigit()]
-    numbers = [p for p in parts if p.isdigit()]
-    key = "-".join(words + numbers)
-    return key or None
-
-
-def same_model(a: Any, b: Any) -> bool:
-    """True if two model ids name the same model after `normalize_model_id`.
-
-    A bare alias with no version number ("haiku", "sonnet", "opus") matches any
-    model whose normalized id contains that word, because the alias can resolve
-    to any of them. Refusing to grade is the safe side of that ambiguity.
-    Unknown ids never match.
-    """
-    na, nb = normalize_model_id(a), normalize_model_id(b)
-    if na is None or nb is None:
-        return False
-    if na == nb:
-        return True
-    for alias, other in ((na, nb), (nb, na)):
-        if not any(ch.isdigit() for ch in alias) and "-" not in alias:
-            if alias in other.split("-"):
-                return True
-    return False
-
-
 def producing_model(run: AgentRun, ctx: EvalContext) -> Optional[str]:
     """The model that produced `run`: its `meta.model`, else the suite or case
     `target.model`. None if neither names a model."""

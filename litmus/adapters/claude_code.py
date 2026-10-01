@@ -33,6 +33,7 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from ..model_ids import UNKNOWN_MODEL
 from ..models import AgentRun, ToolCall
 
 CAPTURED_BY = "litmus capture"
@@ -165,13 +166,13 @@ def capture(
     run = parse_stream(events)
     # An explicit --model is the tag `matrix` groups and filters on, so it wins.
     # The id the CLI reported is kept as meta.model_id. With no --model, the
-    # reported id becomes meta.model ("default" only if the CLI reported none).
+    # reported id becomes meta.model (UNKNOWN_MODEL only if the CLI reported none).
     reported = run.meta.get("model")
     if reported:
         run.meta["model_id"] = reported
     if model:
         run.meta["model"] = model
-    run.meta.setdefault("model", "default")
+    run.meta.setdefault("model", UNKNOWN_MODEL)
     run.meta.setdefault("exit_code", proc.returncode)
     run.meta["captured_by"] = CAPTURED_BY
     run.meta["captured_at"] = started

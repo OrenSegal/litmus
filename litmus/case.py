@@ -5,7 +5,7 @@ Suite layout (dir-based):
     suite/
       suite.json            # optional: { "name", "target", "defaults": {...} }
       cases/*.json|*.yaml    # one Case each
-      runs/<case-id>/*.json  # AgentRun samples for that case (transcript adapter)
+      runs/<case-id>/*.json  # AgentRun samples for that case
       runs/<case-id>.json    # ...or a single sample
       *.schema.json          # referenced by `schema: { ref: ... }`
 
@@ -134,7 +134,7 @@ def load_suite(suite_dir: Path) -> Tuple[str, Dict[str, Any], List[Case]]:
 
 
 def load_runs(case: Case, suite_dir: Path) -> List[AgentRun]:
-    """Resolve a case's AgentRun samples (transcript adapter).
+    """Resolve a case's AgentRun samples from the suite directory.
 
     Precedence: explicit `runs:` paths -> runs/<id>/*.json -> runs/<id>.json.
     Raises FileNotFoundError when there are none and SuiteError when a path
@@ -167,3 +167,12 @@ def load_runs(case: Case, suite_dir: Path) -> List[AgentRun]:
         except (TypeError, ValueError, AttributeError) as exc:
             raise SuiteError(f"{p}: not a valid AgentRun ({exc})") from exc
     return runs
+
+
+def runs_or_error(case: Case, suite_dir: Path) -> Tuple[List[AgentRun], str]:
+    """`load_runs`, but a case whose runs cannot be used comes back as
+    ([], reason) instead of raising, so one bad case never stops a suite."""
+    try:
+        return load_runs(case, suite_dir), ""
+    except (FileNotFoundError, SuiteError) as exc:
+        return [], str(exc)

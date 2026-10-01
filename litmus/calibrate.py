@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from .assertions import normalize_model_id, same_model
+from .model_ids import normalize_model_id, same_model
 
 VERDICTS = ("pass", "fail")
 _FIELDS = ("id", "artifact", "rubric", "human", "judge", "model")

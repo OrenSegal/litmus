@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .adapters.claude_code import CAPTURED_BY
-from .case import SuiteError, load_runs, load_suite
+from .case import load_suite, runs_or_error
 
 
 @dataclass
@@ -66,10 +66,8 @@ def suite_status(suite_dir: Path) -> SuiteStatus:
             declared_samples=case.samples,
             judge_assertions=sum(1 for a in case.asserts if isinstance(a, dict) and "judge" in a),
         )
-        try:
-            runs = load_runs(case, suite_dir)
-        except (FileNotFoundError, SuiteError) as exc:
-            cs.error = str(exc)
+        runs, cs.error = runs_or_error(case, suite_dir)
+        if cs.error:
             result.cases.append(cs)
             continue
         for run in runs:

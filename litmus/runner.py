@@ -3,7 +3,7 @@ aggregate into sample-based pass-rates, and roll up to case/suite status.
 
 Non-determinism is first-class: a case runs over N samples, each assertion
 reports a pass-rate, and `flaky` flags an assertion that is neither reliably
-green nor reliably red (LITMUS_SPEC §7).
+green nor reliably red (LITMUS_SPEC.md §7).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from .assertions import EvalContext, run_assertion
-from .case import SuiteError, load_runs, load_suite
+from .case import load_suite, runs_or_error
 from .models import (
     AgentRun,
     AssertionResult,
@@ -78,18 +78,24 @@ def evaluate_case(
     return CaseResult(case.id, status, results, target=case.target, error=error)
 
 
-def evaluate_suite(suite_dir: Path, ctx: Optional[EvalContext] = None) -> SuiteResult:
-    suite_dir = Path(suite_dir)
+def suite_context(suite_dir: Path, ctx: Optional[EvalContext]) -> EvalContext:
+    """The caller's context (or a default one), with suite paths resolved
+    against `suite_dir` unless the caller set a base directory."""
     ctx = ctx or EvalContext(base_dir=suite_dir)
     if ctx.base_dir == Path("."):
         ctx.base_dir = suite_dir
+    return ctx
+
+
+def evaluate_suite(suite_dir: Path, ctx: Optional[EvalContext] = None) -> SuiteResult:
+    suite_dir = Path(suite_dir)
+    ctx = suite_context(suite_dir, ctx)
     name, target, cases = load_suite(suite_dir)
     results: List[CaseResult] = []
     for case in cases:
-        try:
-            runs = load_runs(case, suite_dir)
-        except (FileNotFoundError, SuiteError) as exc:
-            results.append(CaseResult(case.id, Status.FAIL, target=case.target, error=str(exc)))
+        runs, error = runs_or_error(case, suite_dir)
+        if error:
+            results.append(CaseResult(case.id, Status.FAIL, target=case.target, error=error))
             continue
         results.append(evaluate_case(case, runs, ctx))
     return SuiteResult(name, results, target)

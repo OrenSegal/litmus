@@ -4,11 +4,11 @@
     litmus gate   <suite> --baseline <file>   # diff vs baseline, exit 1 on regressions
     litmus bless  <suite> [--out <file>]      # snapshot current result as the baseline
     litmus matrix <suite> [--models a,b]      # case x model grid across model-tagged runs
-    litmus index  <suite> [<suite> ...]       # Hallucination Index leaderboard
+    litmus index  <suite> [<suite> ...]       # rank suites worst-first by green rate
     litmus capture "<prompt>" --out run.json  # capture a live AgentRun via the Claude CLI
     litmus calibrate <labels.jsonl>           # judge vs human labels: recall, precision, kappa
     litmus status <suite>                     # what a green proves: captured vs fixture runs
-    litmus version
+    litmus --version
 
 Exit codes, for every command:
 
@@ -32,7 +32,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from . import __version__
 from .assertions import EvalContext, JudgeError, JudgeFn
@@ -42,6 +42,7 @@ from .gate import baseline_warnings, can_bless, diff, load_baseline, write_basel
 from .index import IndexEntry, render_index
 from .judge import DEFAULT_JUDGE_MODEL, ClaudeJudge
 from .matrix import evaluate_matrix, render_matrix
+from .model_ids import UNKNOWN_MODEL
 from .models import Status, SuiteResult
 from .report import render_gate, render_suite
 from .report_html import render_html
@@ -117,7 +118,7 @@ def _index(args: argparse.Namespace) -> int:
         result = evaluate_suite(suite_dir, _ctx(args, suite_dir))
         target = result.target or {}
         entries.append(IndexEntry.from_suite(
-            target.get("skill", suite_dir.name), target.get("model", "default"), result))
+            target.get("skill", suite_dir.name), target.get("model", UNKNOWN_MODEL), result))
     print(render_index(entries))
     return 0
 
@@ -126,16 +127,7 @@ def _capture(args: argparse.Namespace) -> int:
     from .adapters.claude_code import capture
 
     run = capture(args.prompt, model=args.model, cwd=args.cwd)  # CaptureError -> exit 2 in main
-    payload = {
-        "meta": run.meta,
-        "tool_calls": [{"name": c.name, "input": c.input} for c in run.tool_calls],
-        "final_text": run.final_text,
-        "output": run.output,
-        "cost_usd": run.cost_usd,
-        "tokens": run.tokens,
-        "latency_ms": run.latency_ms,
-    }
-    text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    text = json.dumps(run.to_obj(), indent=2, ensure_ascii=False) + "\n"
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"captured AgentRun → {args.out}")
@@ -191,24 +183,17 @@ def _calibrate(args: argparse.Namespace) -> int:
     return 0
 
 
-def _kappa_threshold(value: str) -> float:
-    try:
-        threshold = float(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"not a number: {value!r}")
-    if not -1.0 <= threshold <= 1.0:  # also rejects nan and inf
-        raise argparse.ArgumentTypeError("must be between -1 and 1")
-    return threshold
-
-
-def _drift_tolerance(value: str) -> float:
-    try:
-        tol = float(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"not a number: {value!r}")
-    if not 0.0 <= tol <= 1.0:  # a pass-rate drop; also rejects nan and inf
-        raise argparse.ArgumentTypeError("must be between 0 and 1")
-    return tol
+def _bounded_float(lo: float, hi: float) -> Callable[[str], float]:
+    """An argparse type: a float in [lo, hi]. Also rejects nan and inf."""
+    def parse(value: str) -> float:
+        try:
+            number = float(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"not a number: {value!r}")
+        if not lo <= number <= hi:
+            raise argparse.ArgumentTypeError(f"must be between {lo:g} and {hi:g}")
+        return number
+    return parse
 
 
 def _gate(args: argparse.Namespace) -> int:
@@ -237,7 +222,7 @@ def _bless(args: argparse.Namespace) -> int:
         return 1
     out = Path(args.out) if args.out else suite_dir / "baseline.json"
     write_baseline(result, out, judge=_judge_model(args))
-    print(f"blessed baseline → {out}  ({sum(1 for c in result.cases if c.status is Status.PASS)}/{len(result.cases)} green)")
+    print(f"blessed baseline → {out}  ({result.counts()[Status.PASS]}/{len(result.cases)} green)")
     return 0
 
 
@@ -265,7 +250,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     p_gate = sub.add_parser("gate", parents=[common, judging], help="diff vs baseline; fail on regressions")
     p_gate.add_argument("--baseline", help="baseline JSON (default: <suite>/baseline.json)")
-    p_gate.add_argument("--drift-tol", type=_drift_tolerance, default=0.10,
+    p_gate.add_argument("--drift-tol", type=_bounded_float(0.0, 1.0), default=0.10,
                         help="allowed pass-rate drop (0-1) before it's a regression")
     p_gate.add_argument("--html", help="also write a self-contained HTML report here")
     p_gate.set_defaults(func=_gate)
@@ -280,7 +265,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_matrix.add_argument("--reference", help="model to treat as baseline; exit 1 on cross-model regressions")
     p_matrix.set_defaults(func=_matrix)
 
-    p_index = sub.add_parser("index", parents=[judging], help="Hallucination Index across suites")
+    p_index = sub.add_parser("index", parents=[judging], help="rank suites worst-first by green rate")
     p_index.add_argument("suites", nargs="+", help="one or more suite directories")
     p_index.add_argument("--timeout", type=int, default=10)
     p_index.set_defaults(func=_index)
@@ -301,7 +286,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_cal.add_argument("labels", help="JSONL: {id, artifact, rubric, human, judge?, model?} per line")
     p_cal.add_argument("--out", help="with --judge, write the labels plus judge verdicts here")
     p_cal.add_argument("--rejudge", action="store_true", help="with --judge, re-grade rows that already have a verdict")
-    p_cal.add_argument("--min-kappa", type=_kappa_threshold, help="exit 1 if Cohen's kappa is below this")
+    p_cal.add_argument("--min-kappa", type=_bounded_float(-1.0, 1.0), help="exit 1 if Cohen's kappa is below this")
     p_cal.add_argument("--json", action="store_true", help="print the metrics as JSON")
     p_cal.set_defaults(func=_calibrate)
 

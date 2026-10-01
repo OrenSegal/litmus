@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .assertions import EvalContext
-from .case import SuiteError, load_runs, load_suite
+from .case import load_suite, runs_or_error
+from .model_ids import UNKNOWN_MODEL
 from .models import AgentRun, CaseResult, Status
-from .report import _tag  # reuse the coloured status glyph
+from .report import status_tag
+from .runner import evaluate_case, suite_context
 
 
 @dataclass
@@ -49,7 +51,7 @@ class MatrixResult:
 def _group_by_model(runs: List[AgentRun]) -> Dict[str, List[AgentRun]]:
     groups: Dict[str, List[AgentRun]] = {}
     for r in runs:
-        groups.setdefault(str(r.meta.get("model", "default")), []).append(r)
+        groups.setdefault(str(r.meta.get("model", UNKNOWN_MODEL)), []).append(r)
     return groups
 
 
@@ -59,21 +61,16 @@ def evaluate_matrix(
     models: Optional[List[str]] = None,
 ) -> MatrixResult:
     suite_dir = Path(suite_dir)
-    ctx = ctx or EvalContext(base_dir=suite_dir)
-    if ctx.base_dir == Path("."):
-        ctx.base_dir = suite_dir
-    from .runner import evaluate_case
-
+    ctx = suite_context(suite_dir, ctx)
     _, _, cases = load_suite(suite_dir)
     result = MatrixResult()
     seen: List[str] = []
     for case in cases:
-        try:
-            runs = load_runs(case, suite_dir)
-        except (FileNotFoundError, SuiteError) as exc:
+        runs, error = runs_or_error(case, suite_dir)
+        if error:
             # Not in the grid, so it cannot show as a cross-model regression;
             # say so instead of dropping it silently.
-            ctx.warn(f"matrix: case {case.id!r} left out: {exc}")
+            ctx.warn(f"matrix: case {case.id!r} left out: {error}")
             continue
         groups = _group_by_model(runs)
         result.grid[case.id] = {}
@@ -97,6 +94,6 @@ def render_matrix(result: MatrixResult) -> str:
         cells = []
         for m in result.models:
             r = bym.get(m)
-            cells.append(f"{_tag(r.status):<10}" if r else f"{'—':<10}")
+            cells.append(f"{status_tag(r.status):<10}" if r else f"{'—':<10}")
         lines.append(f"{cid:<{width}}  " + "  ".join(cells))
     return "\n".join(lines)

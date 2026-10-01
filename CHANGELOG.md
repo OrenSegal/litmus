@@ -8,10 +8,16 @@
 - `LITMUS_SPEC.md` is now the engine's design document only, and matches the
   code (`samples` defaults to 1; `ordering`, `capture`, `calibrate` and
   `status` are documented).
+- `litmus capture` now writes the run's `transcript` too; it was parsed and
+  then dropped from the file.
+- `litmus index` output is headed `litmus index`.
+- `pyproject.toml` reads the version from `litmus.__version__`.
 
 ### Removed
 
 - The blank `calibration/WRITEUP.md` template.
+- `litmus.adapters.transcript` and `AgentRun.load`, which nothing used.
+  Run files are read by `litmus.case.load_runs`.
 
 ## 0.2.0
 
