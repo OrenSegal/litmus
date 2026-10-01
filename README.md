@@ -10,6 +10,29 @@ Litmus pins golden tasks, runs them against a change, and returns a red/green di
 
 Full design: [`LITMUS_SPEC.md`](https://github.com/OrenSegal/litmus/blob/main/LITMUS_SPEC.md). Lineage: this generalizes `signal-scout`'s hand-built `verify_sources.py`.
 
+## Install
+
+```bash
+pip install litmus-ci   # the `litmus` command, Python 3.9+, no dependencies (use a venv, or `pipx install litmus-ci`)
+npx litmus-skills       # copies the /litmus skill into ~/.claude/skills (Claude Code, OpenCode)
+```
+
+As a Claude Code plugin instead of `npx`:
+
+```
+/plugin marketplace add OrenSegal/litmus
+/plugin install litmus@litmus
+```
+
+As a GitHub Action, gating a suite against its committed `baseline.json` (create it with `litmus bless <suite>`):
+
+```yaml
+- uses: actions/checkout@v4
+- uses: OrenSegal/litmus@v1
+  with:
+    suite: path/to/suite
+```
+
 ## Status
 
 Full pipeline, **102 tests, all offline**: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. Litmus never reads the key itself.
@@ -18,9 +41,6 @@ Full pipeline, **102 tests, all offline**: no model, no network, no API key. Gra
 git clone https://github.com/OrenSegal/litmus && cd litmus
 python3 -m unittest discover -s tests -t .        # 102 passing, no deps
 python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
-
-python3 -m venv .venv && . .venv/bin/activate      # Homebrew/Debian Python refuse a global pip install
-pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
 ```
 
 | Milestone | Shipped |
@@ -31,7 +51,7 @@ pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` com
 | M4 matrix | `litmus matrix`: case × model grid, cross-model regression detection |
 | M5 case study | `examples/signal-scout/` suite. Partial: it runs offline on captured runs, and per the spec it hasn't logged a real outcome yet |
 | M6 index (prototype) | `litmus index` ranks models across suites. Tested on fixtures only; no public Hallucination Index run exists yet |
-| packaging | Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, CI dogfood |
+| packaging | PyPI (`litmus-ci`), Claude Code plugin (`.claude-plugin/` + `skills/litmus/`), npm installer, GitHub Action, CI dogfood |
 
 ## How it works
 
