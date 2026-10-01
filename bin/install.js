@@ -13,7 +13,8 @@ function parseTargetDir(argv) {
   if (flagIndex !== -1 && argv[flagIndex + 1]) {
     return argv[flagIndex + 1];
   }
-  return path.join(os.homedir(), ".agents", "skills", SKILL_NAME);
+  // Claude Code only loads user skills from ~/.claude/skills; OpenCode reads it too.
+  return path.join(os.homedir(), ".claude", "skills", SKILL_NAME);
 }
 
 function copyRecursive(src, dest) {
@@ -33,6 +34,14 @@ function main() {
 
   if (!fs.existsSync(SOURCE_DIR)) {
     console.error(`Skill source not found at ${SOURCE_DIR}`);
+    process.exit(1);
+  }
+
+  // --dir is the skill's own directory. Never wipe a non-empty one that isn't a skill
+  // (e.g. `--dir ~/.claude/skills` would otherwise delete every installed skill).
+  if (fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0 &&
+      !fs.existsSync(path.join(targetDir, "SKILL.md"))) {
+    console.error(`Refusing to replace ${targetDir}: not empty and has no SKILL.md`);
     process.exit(1);
   }
 
