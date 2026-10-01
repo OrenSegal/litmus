@@ -24,12 +24,19 @@ before adding any `judge` assertion.
 
 ## Engine
 
-Litmus is a stdlib-only Python CLI. Install once:
+Litmus is a stdlib-only Python CLI (Python 3.10+). Installed as a Claude Code
+plugin, `litmus` is already on the Bash tool's PATH (the plugin's `bin/litmus`),
+and `/litmus:run`, `/litmus:gate` and `/litmus:new-case` call it. Elsewhere:
 
 ```bash
-pip install litmus-ci        # provides the `litmus` command
+pip install git+https://github.com/OrenSegal/litmus   # provides the `litmus` command (not on PyPI yet)
 # or, from a checkout:  python3 -m litmus.cli ...
 ```
+
+Exit codes: 0 green / no regression, 1 red / regression, 2 the suite could not
+be evaluated (bad file, path outside the suite, judge or capture error).
+`litmus status <suite>` says how many runs were captured live versus written by
+hand, which is what a green on that suite actually proves.
 
 ## The workflow
 
@@ -98,6 +105,6 @@ pip install litmus-ci        # provides the `litmus` command
 ## CI snippet
 
 ```yaml
-- run: pip install litmus-ci
+- run: pip install git+https://github.com/OrenSegal/litmus
 - run: litmus gate suite/ --baseline suite/baseline.json
 ```

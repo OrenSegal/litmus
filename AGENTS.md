@@ -5,9 +5,9 @@ Litmus — red/green CI for prompt-ware. Test the behavior a skill's scripts can
 - **Engine**: `litmus/` — pure Python, stdlib-only, no model calls. Grades an
   `AgentRun` (captured agent execution) against deterministic assertions.
 - **Skill**: `skills/litmus/SKILL.md` teaches an agent to author + run suites.
-- **CLI**: `litmus run | gate | bless | matrix | index | capture`
-  (`pip install litmus-ci`, or `python3 -m litmus.cli`).
-- **Tests**: `python3 -m unittest discover -s tests -t .`: 102 passing, offline,
+- **CLI**: `litmus run | gate | bless | matrix | index | capture | calibrate | status`
+  (`pip install git+https://github.com/OrenSegal/litmus`, the plugin's `bin/litmus`, or `python3 -m litmus.cli`).
+- **Tests**: `python3 -m unittest discover -s tests -t .`: 154 passing, offline,
   no API key.
 
 The invariant that defines the product: **a green only ever comes from a check

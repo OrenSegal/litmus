@@ -30,9 +30,16 @@ Runs precedence for a case: explicit `runs:` paths → `runs/<id>/*.json` → `r
 }
 ```
 
-`samples` runs the case N times over its N captured runs; each assertion reports
-a pass-rate and a case passes only if every assertion meets its threshold
-(default 1.0). An assertion neither reliably green nor red is flagged `~flaky`.
+`samples` declares how many captured runs the case is graded over; each
+assertion reports a pass-rate and a case passes only if every assertion meets
+its threshold (default 1.0). An assertion neither reliably green nor red is
+flagged `~flaky`. With fewer runs on disk than `samples`, the case is
+`INCONCLUSIVE` (or `FAIL`, if a run it has already fails).
+
+Every path a case names (`runs:`, `schema.ref`, judge `anchors[].output`) is
+relative to the suite directory and must stay inside it once `..` and symlinks
+are resolved. A path that leaves the suite fails that case; Litmus never reads
+it, or sends it to a judge.
 
 ## AgentRun (what the engine grades)
 
