@@ -37,6 +37,8 @@ Security and correctness hardening. Every fix below has a test in
 
 ### Added
 
+- `evals/`: two offline `claude plugin eval` cases for the litmus skill (fires
+  and writes a case; does not fire on an unrelated request). Not run in CI.
 - `litmus status <suite>`: captured versus fixture runs, missing samples, judge
   coverage and baseline provenance. Captured runs are stamped
   `meta.captured_by` and `meta.captured_at`.

@@ -43,6 +43,19 @@ CI runs all of these on Python 3.10 to 3.13.
   and `litmus/__init__.py`. A test checks that they agree.
 - Add a line under the next version in `CHANGELOG.md`.
 
+## Skill trigger evals
+
+`evals/` holds `claude plugin eval` cases for the litmus skill itself: one that
+should fire it and produce a litmus case, and one unrelated request that must not
+fire it. They call a real model on your own credential, so they are not run in CI.
+Run them by hand when you change `skills/litmus/SKILL.md`'s description:
+
+```bash
+claude plugin eval . --runs 3 --max-cost-usd 2
+```
+
+`claude plugin validate --strict` does not check `evals/`.
+
 ## Releases
 
 Tag `vX.Y.Z` on `main`. The release workflow checks the tag against every
