@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .assertions import EvalContext
-from .case import load_runs, load_suite
+from .case import SuiteError, load_runs, load_suite
 from .models import AgentRun, CaseResult, Status
 from .report import _tag  # reuse the coloured status glyph
 
@@ -29,7 +29,13 @@ class MatrixResult:
     grid: Dict[str, Dict[str, CaseResult]] = field(default_factory=dict)
 
     def regressions_vs(self, reference: str) -> List[str]:
-        """Cases green on `reference` model but not on some other model."""
+        """Cases green on `reference` model but not on some other model.
+
+        Raises ValueError if `reference` is not one of the models in the grid:
+        a typo must not read as "no regressions"."""
+        if reference not in self.models:
+            raise ValueError(
+                f"--reference {reference!r} is not among the models found: {', '.join(self.models) or 'none'}")
         out = []
         for cid, bym in self.grid.items():
             ref = bym.get(reference)
@@ -64,7 +70,10 @@ def evaluate_matrix(
     for case in cases:
         try:
             runs = load_runs(case, suite_dir)
-        except FileNotFoundError:
+        except (FileNotFoundError, SuiteError) as exc:
+            # Not in the grid, so it cannot show as a cross-model regression;
+            # say so instead of dropping it silently.
+            ctx.warn(f"matrix: case {case.id!r} left out: {exc}")
             continue
         groups = _group_by_model(runs)
         result.grid[case.id] = {}

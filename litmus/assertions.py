@@ -12,15 +12,18 @@ its value is that assertion's config (a string shorthand or a dict).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import schema as schema_mod
+from .case import suite_path
 from .fetch import Fetcher, UrllibFetcher, grounding_ratio
+from .regex import RegexTimeout, search_any
 from .jsonpath import exists, resolve
-from .models import AgentRun, Verdict
+from .models import AgentRun, Status, Verdict
 
 # A judge callable: (artifact, rubric) -> bool  (True == meets the criterion).
 # Absent by default, so judge assertions are INCONCLUSIVE unless a caller wires
@@ -52,11 +55,12 @@ class EvalContext:
             self.warnings.append(message)
 
 
-_REGISTRY: Dict[str, Callable[[Any, AgentRun, EvalContext], Verdict]] = {}
+AssertionFn = Callable[[Any, AgentRun, EvalContext], Verdict]
+_REGISTRY: Dict[str, AssertionFn] = {}
 
 
-def assertion(name: str):
-    def deco(fn):
+def assertion(name: str) -> Callable[[AssertionFn], AssertionFn]:
+    def deco(fn: AssertionFn) -> AssertionFn:
         _REGISTRY[name] = fn
         return fn
 
@@ -79,9 +83,7 @@ def run_assertion(entry: Dict[str, Any], run: AgentRun, ctx: EvalContext) -> Ver
         return Verdict(name, _fail_status(), f"assertion errored: {exc}")
 
 
-def _fail_status():
-    from .models import Status
-
+def _fail_status() -> Status:
     return Status.FAIL
 
 
@@ -156,9 +158,7 @@ def schema(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     cfg = dict(config)
     path = cfg.get("path", "$")
     if "ref" in cfg:
-        import json
-
-        sch = json.loads((ctx.base_dir / cfg["ref"]).read_text(encoding="utf-8"))
+        sch = json.loads(suite_path(ctx.base_dir, cfg["ref"]).read_text(encoding="utf-8"))
     else:
         sch = cfg["schema"]
     targets = resolve(path, run.output)
@@ -195,9 +195,19 @@ def contains(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 @assertion("matches")
 def matches(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     path, pattern = config["path"], config["pattern"]
-    rx = re.compile(pattern)
+    timeout = float(config.get("timeout", 2.0))
+    re.compile(pattern)  # a bad pattern is a config error, raised before any matching
     got = [g for g in resolve(path, run.output) if isinstance(g, str)]
-    if any(rx.search(g) for g in got):
+    # The pattern is the case author's; the text is the model's. A pattern with
+    # nested quantifiers can backtrack for minutes on the wrong text, so the
+    # search is time-boxed and a timeout is a FAIL, never a hang.
+    try:
+        hit = search_any(pattern, got, timeout)
+    except RegexTimeout:
+        return Verdict.failed(
+            "matches", f"regex /{pattern}/ timed out after {timeout}s at {path} "
+            "(catastrophic backtracking?); simplify the pattern")
+    if hit:
         return Verdict.passed("matches", f"{path} matches /{pattern}/")
     return Verdict.failed("matches", f"no value at {path} matches /{pattern}/", got)
 
@@ -221,9 +231,17 @@ def count(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     return Verdict.failed("count", f"count({path})={n} not {op} {value}")
 
 
+_BUDGET_METRICS = {"cost_usd", "tokens", "latency_ms"}
+
+
 @assertion("budget")
 def budget(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     limits = dict(config)
+    if not limits:
+        return Verdict.failed("budget", f"budget needs at least one of {sorted(_BUDGET_METRICS)}")
+    unknown = sorted(set(limits) - _BUDGET_METRICS)
+    if unknown:
+        return Verdict.failed("budget", f"unknown budget metric(s) {unknown}; use {sorted(_BUDGET_METRICS)}")
     for metric, cap in limits.items():
         got = getattr(run, metric, None)
         if got is None:
@@ -261,12 +279,21 @@ def grounded(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     claims = resolve(config["claim"], run.output)
     sources = resolve(config["source"], run.output)
     threshold = float(config.get("threshold", 0.15))
+    if len(claims) != len(sources):
+        # Claims and sources pair up by position; with unequal counts the
+        # pairing is a guess and the extra claims would go unchecked.
+        return Verdict.failed(
+            "grounded", f"{len(claims)} claim(s) but {len(sources)} source(s) matched; "
+            "each claim needs exactly one source")
     pairs = list(zip(claims, sources))
     if not pairs:
         return Verdict.skipped("grounded", "no claim/source pairs to check")
-    low, walled = [], []
+    low: List[Tuple[str, float]] = []
+    walled: List[str] = []
+    unfetchable: List[Any] = []
     for claim, source in pairs:
         if not isinstance(source, str) or not source.startswith(("http://", "https://")):
+            unfetchable.append(source)
             continue
         res = ctx.fetcher.fetch(source, ctx.timeout)
         if res.bot_walled:
@@ -277,8 +304,12 @@ def grounded(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
             low.append((source, round(ratio, 2)))
     if low:
         return Verdict.failed("grounded", f"{len(low)} claim(s) not grounded in their source", low)
-    if walled:
-        return Verdict.inconclusive("grounded", f"{len(walled)} source(s) bot-walled — unverifiable", walled)
+    if len(unfetchable) == len(pairs):
+        return Verdict.skipped("grounded", "no claim had a fetchable http(s) source")
+    if walled or unfetchable:
+        return Verdict.inconclusive(
+            "grounded", f"{len(walled)} source(s) bot-walled and {len(unfetchable)} not an http(s) URL "
+            "— unverifiable", walled + unfetchable)
     return Verdict.passed("grounded", f"{len(pairs)} claim(s) grounded")
 
 
@@ -314,13 +345,14 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     same, reason = _self_grading(run, ctx)
     if same:
         return Verdict.inconclusive("judge", reason)
+    # Load every anchor before the first judge call, so an anchor path that
+    # leaves the suite fails the assertion without anything reaching the judge.
+    loaded = [(anchor, json.loads(suite_path(ctx.base_dir, anchor["output"]).read_text(encoding="utf-8")))
+              for anchor in anchors]
     if reason:
         ctx.warn(reason)
     # If the judge misgrades a known anchor, its verdict on the real artifact is void.
-    import json
-
-    for anchor in anchors:
-        art = json.loads((ctx.base_dir / anchor["output"]).read_text(encoding="utf-8"))
+    for anchor, art in loaded:
         expect = anchor["expect"] == "pass"
         if ctx.judge(art, rubric) != expect:
             return Verdict.inconclusive("judge", f"judge failed anchor calibration on {anchor['output']}")
@@ -411,7 +443,7 @@ def producing_model(run: AgentRun, ctx: EvalContext) -> Optional[str]:
     return None
 
 
-def _self_grading(run: AgentRun, ctx: EvalContext):
+def _self_grading(run: AgentRun, ctx: EvalContext) -> Tuple[bool, str]:
     """Return (is_self_grading, message).
 
     (True, reason) when the judge model is the producing model. (False, warning)

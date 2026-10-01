@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import List
 
 from .gate import GateReport
 from .models import Status, SuiteResult
@@ -61,12 +62,13 @@ def render_suite(result: SuiteResult, verbose: bool = True) -> str:
 
 def render_gate(report: GateReport) -> str:
     lines = ["litmus gate"]
-    def block(label: str, items):
+    def block(label: str, items: List[str]) -> None:
         if items:
             lines.append(f"  {label}:")
             lines.extend(f"    - {i}" for i in items)
     block("REGRESSIONS", report.regressions)
     block("new failing", report.new_failing)
+    block("removed (in baseline, missing now)", report.removed)
     block("fixes", report.fixes)
     block("new green", report.new_green)
     block("still red", report.still_red)

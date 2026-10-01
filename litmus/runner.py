@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import List
+from typing import Any, List, Optional
 
 from .assertions import EvalContext, run_assertion
-from .case import load_runs, load_suite
+from .case import SuiteError, load_runs, load_suite
 from .models import (
     AgentRun,
     AssertionResult,
@@ -26,7 +26,7 @@ from .models import (
 )
 
 
-def _entry_name(index: int, entry: dict) -> str:
+def _entry_name(index: int, entry: Any) -> str:
     key = next(iter(entry)) if isinstance(entry, dict) and entry else "?"
     return f"{index:02d}:{key}"
 
@@ -63,12 +63,22 @@ def evaluate_case(
     for i, entry in enumerate(case.asserts):
         verdicts = [run_assertion(entry, run, ctx) for run in runs]
         results.append(_aggregate(_entry_name(i, entry), verdicts, threshold))
-    # Case is green only if every assertion is PASS or SKIP.
-    status = worst([r.status for r in results]) if results else Status.SKIP
-    return CaseResult(case.id, status, results, target=case.target)
+    # Case is green only if every assertion is PASS or SKIP (and at least one
+    # PASSed): a SKIP proved nothing, so it neither greens nor reddens a case.
+    checked = [r.status for r in results if r.status is not Status.SKIP]
+    status = worst(checked) if checked else Status.SKIP
+    error = ""
+    # `samples: N` promises N captured runs. Fewer means the sampling the case
+    # declares never happened, so a green would claim more than was checked.
+    # A FAIL stays a FAIL: one failing sample is already a real failure.
+    if len(runs) < case.samples and status is not Status.FAIL:
+        error = (f"declared samples: {case.samples} but found {len(runs)} run(s); "
+                 "capture the rest or lower `samples`")
+        status = Status.INCONCLUSIVE
+    return CaseResult(case.id, status, results, target=case.target, error=error)
 
 
-def evaluate_suite(suite_dir: Path, ctx: EvalContext | None = None) -> SuiteResult:
+def evaluate_suite(suite_dir: Path, ctx: Optional[EvalContext] = None) -> SuiteResult:
     suite_dir = Path(suite_dir)
     ctx = ctx or EvalContext(base_dir=suite_dir)
     if ctx.base_dir == Path("."):
@@ -78,7 +88,7 @@ def evaluate_suite(suite_dir: Path, ctx: EvalContext | None = None) -> SuiteResu
     for case in cases:
         try:
             runs = load_runs(case, suite_dir)
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, SuiteError) as exc:
             results.append(CaseResult(case.id, Status.FAIL, target=case.target, error=str(exc)))
             continue
         results.append(evaluate_case(case, runs, ctx))
