@@ -1,0 +1,30 @@
+#!/bin/sh
+# litmus: run the engine bundled with this plugin checkout, no pip install needed.
+#
+# Claude Code puts a plugin's bin/ on the Bash tool's PATH, so inside a session
+# `litmus run <suite>` works once the plugin is enabled. Elsewhere, call this
+# file by path or `pip install litmus-ci` for the same `litmus` command.
+# LITMUS_PYTHON picks the interpreter (default: python3, which must be >= 3.10).
+set -e
+
+# Follow symlinks so a link to this file (e.g. in ~/.local/bin) still finds
+# the package next to it.
+src=$0
+while [ -h "$src" ]; do
+  dir=$(cd -P -- "$(dirname -- "$src")" && pwd)
+  src=$(readlink -- "$src")
+  case $src in
+    /*) ;;
+    *) src=$dir/$src ;;
+  esac
+done
+root=$(cd -P -- "$(dirname -- "$src")/.." && pwd)
+
+if [ ! -f "$root/litmus/cli.py" ]; then
+  echo "litmus: engine not found at $root/litmus; install it with: pip install litmus-ci" >&2
+  exit 2
+fi
+
+PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+exec "${LITMUS_PYTHON:-python3}" -m litmus.cli "$@"
