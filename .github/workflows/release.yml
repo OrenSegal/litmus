@@ -1,0 +1,38 @@
+name: release
+# Build the sdist and wheel for a version tag and attach them to a GitHub
+# Release. Nothing is published to PyPI or npm from here.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # litmus.__version__ is the one version; the tests check every manifest
+      # against it, so the tag only has to match it.
+      - name: Tag matches the package version
+        run: |
+          version="$(python -c 'import litmus; print(litmus.__version__)')"
+          test "${GITHUB_REF_NAME#v}" = "$version" || { echo "tag $GITHUB_REF_NAME does not match litmus.__version__ $version"; exit 1; }
+      - name: Tests
+        run: python -m unittest discover -s tests -t .
+      - name: Build
+        run: |
+          python -m pip install "build>=1" "twine>=5"
+          python -m build
+          twine check dist/*
+      - name: Create the GitHub Release with the built files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes "See CHANGELOG.md for what changed. Built from $GITHUB_SHA."

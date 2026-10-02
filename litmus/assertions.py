@@ -1,4 +1,4 @@
-"""The assertion library — the heart of Litmus.
+"""The assertion library — the heart of litmus.
 
 Each assertion is a pure function `(config, AgentRun, EvalContext) -> Verdict`.
 Deterministic assertions are trusted unconditionally. The one judge assertion
@@ -12,15 +12,19 @@ its value is that assertion's config (a string shorthand or a dict).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import schema as schema_mod
-from .fetch import Fetcher, UrllibFetcher, grounding_ratio
+from .case import suite_path
+from .fetch import Fetcher, UrllibFetcher, grounding_ratio, is_http_url
+from .regex import RegexTimeout, search_any
 from .jsonpath import exists, resolve
-from .models import AgentRun, Verdict
+from .model_ids import normalize_model_id, same_model
+from .models import AgentRun, Status, Verdict
 
 # A judge callable: (artifact, rubric) -> bool  (True == meets the criterion).
 # Absent by default, so judge assertions are INCONCLUSIVE unless a caller wires
@@ -52,11 +56,12 @@ class EvalContext:
             self.warnings.append(message)
 
 
-_REGISTRY: Dict[str, Callable[[Any, AgentRun, EvalContext], Verdict]] = {}
+AssertionFn = Callable[[Any, AgentRun, EvalContext], Verdict]
+_REGISTRY: Dict[str, AssertionFn] = {}
 
 
-def assertion(name: str):
-    def deco(fn):
+def assertion(name: str) -> Callable[[AssertionFn], AssertionFn]:
+    def deco(fn: AssertionFn) -> AssertionFn:
         _REGISTRY[name] = fn
         return fn
 
@@ -66,23 +71,17 @@ def assertion(name: str):
 def run_assertion(entry: Dict[str, Any], run: AgentRun, ctx: EvalContext) -> Verdict:
     """Dispatch one `assert:` entry (a single-key dict) to its handler."""
     if not isinstance(entry, dict) or len(entry) != 1:
-        return Verdict("<malformed>", _fail_status(), f"assert entry must be a single-key dict, got {entry!r}")
+        return Verdict("<malformed>", Status.FAIL, f"assert entry must be a single-key dict, got {entry!r}")
     name, config = next(iter(entry.items()))
     handler = _REGISTRY.get(name)
     if handler is None:
-        return Verdict(name, _fail_status(), f"unknown assertion '{name}'")
+        return Verdict(name, Status.FAIL, f"unknown assertion '{name}'")
     try:
         return handler(config, run, ctx)
     except JudgeError:
         raise
     except Exception as exc:  # a broken assertion config is a failure, never a crash
-        return Verdict(name, _fail_status(), f"assertion errored: {exc}")
-
-
-def _fail_status():
-    from .models import Status
-
-    return Status.FAIL
+        return Verdict(name, Status.FAIL, f"assertion errored: {exc}")
 
 
 # --------------------------------------------------------------------------- #
@@ -98,7 +97,7 @@ def _subset(sub: Dict[str, Any], sup: Dict[str, Any]) -> bool:
 
 @assertion("must_run")
 def must_run(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
-    cfg = {"tool": config} if isinstance(config, str) else dict(config)
+    cfg: Dict[str, Any] = {"tool": config} if isinstance(config, str) else dict(config)
     tool = cfg["tool"]
     hits = _called(run, tool)
     if not hits:
@@ -156,9 +155,7 @@ def schema(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     cfg = dict(config)
     path = cfg.get("path", "$")
     if "ref" in cfg:
-        import json
-
-        sch = json.loads((ctx.base_dir / cfg["ref"]).read_text(encoding="utf-8"))
+        sch = json.loads(suite_path(ctx.base_dir, cfg["ref"]).read_text(encoding="utf-8"))
     else:
         sch = cfg["schema"]
     targets = resolve(path, run.output)
@@ -195,9 +192,19 @@ def contains(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 @assertion("matches")
 def matches(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     path, pattern = config["path"], config["pattern"]
-    rx = re.compile(pattern)
+    timeout = float(config.get("timeout", 2.0))
+    re.compile(pattern)  # a bad pattern is a config error, raised before any matching
     got = [g for g in resolve(path, run.output) if isinstance(g, str)]
-    if any(rx.search(g) for g in got):
+    # The pattern is the case author's; the text is the model's. A pattern with
+    # nested quantifiers can backtrack for minutes on the wrong text, so the
+    # search is time-boxed and a timeout is a FAIL, never a hang.
+    try:
+        hit = search_any(pattern, got, timeout)
+    except RegexTimeout:
+        return Verdict.failed(
+            "matches", f"regex /{pattern}/ timed out after {timeout}s at {path} "
+            "(catastrophic backtracking?); simplify the pattern")
+    if hit:
         return Verdict.passed("matches", f"{path} matches /{pattern}/")
     return Verdict.failed("matches", f"no value at {path} matches /{pattern}/", got)
 
@@ -221,9 +228,17 @@ def count(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     return Verdict.failed("count", f"count({path})={n} not {op} {value}")
 
 
+_BUDGET_METRICS = {"cost_usd", "tokens", "latency_ms"}
+
+
 @assertion("budget")
 def budget(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     limits = dict(config)
+    if not limits:
+        return Verdict.failed("budget", f"budget needs at least one of {sorted(_BUDGET_METRICS)}")
+    unknown = sorted(set(limits) - _BUDGET_METRICS)
+    if unknown:
+        return Verdict.failed("budget", f"unknown budget metric(s) {unknown}; use {sorted(_BUDGET_METRICS)}")
     for metric, cap in limits.items():
         got = getattr(run, metric, None)
         if got is None:
@@ -234,12 +249,12 @@ def budget(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 
 
 # --------------------------------------------------------------------------- #
-# grounding assertions (verify_sources.py, generalized) — network via ctx.fetcher
+# grounding assertions: network I/O only through ctx.fetcher
 # --------------------------------------------------------------------------- #
 @assertion("resolves")
 def resolves(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     cfg = {"path": config} if isinstance(config, str) else dict(config)
-    urls = [u for u in resolve(cfg["path"], run.output) if isinstance(u, str) and u.startswith(("http://", "https://"))]
+    urls = [u for u in resolve(cfg["path"], run.output) if is_http_url(u)]
     if not urls:
         return Verdict.skipped("resolves", f"no fetchable URLs at {cfg['path']}")
     dead, walled = [], []
@@ -261,12 +276,21 @@ def grounded(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     claims = resolve(config["claim"], run.output)
     sources = resolve(config["source"], run.output)
     threshold = float(config.get("threshold", 0.15))
+    if len(claims) != len(sources):
+        # Claims and sources pair up by position; with unequal counts the
+        # pairing is a guess and the extra claims would go unchecked.
+        return Verdict.failed(
+            "grounded", f"{len(claims)} claim(s) but {len(sources)} source(s) matched; "
+            "each claim needs exactly one source")
     pairs = list(zip(claims, sources))
     if not pairs:
         return Verdict.skipped("grounded", "no claim/source pairs to check")
-    low, walled = [], []
+    low: List[Tuple[str, float]] = []
+    walled: List[str] = []
+    unfetchable: List[Any] = []
     for claim, source in pairs:
-        if not isinstance(source, str) or not source.startswith(("http://", "https://")):
+        if not is_http_url(source):
+            unfetchable.append(source)
             continue
         res = ctx.fetcher.fetch(source, ctx.timeout)
         if res.bot_walled:
@@ -277,8 +301,12 @@ def grounded(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
             low.append((source, round(ratio, 2)))
     if low:
         return Verdict.failed("grounded", f"{len(low)} claim(s) not grounded in their source", low)
-    if walled:
-        return Verdict.inconclusive("grounded", f"{len(walled)} source(s) bot-walled — unverifiable", walled)
+    if len(unfetchable) == len(pairs):
+        return Verdict.skipped("grounded", "no claim had a fetchable http(s) source")
+    if walled or unfetchable:
+        return Verdict.inconclusive(
+            "grounded", f"{len(walled)} source(s) bot-walled and {len(unfetchable)} not an http(s) URL "
+            "— unverifiable", walled + unfetchable)
     return Verdict.passed("grounded", f"{len(pairs)} claim(s) grounded")
 
 
@@ -314,13 +342,14 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
     same, reason = _self_grading(run, ctx)
     if same:
         return Verdict.inconclusive("judge", reason)
+    # Load every anchor before the first judge call, so an anchor path that
+    # leaves the suite fails the assertion without anything reaching the judge.
+    loaded = [(anchor, json.loads(suite_path(ctx.base_dir, anchor["output"]).read_text(encoding="utf-8")))
+              for anchor in anchors]
     if reason:
         ctx.warn(reason)
     # If the judge misgrades a known anchor, its verdict on the real artifact is void.
-    import json
-
-    for anchor in anchors:
-        art = json.loads((ctx.base_dir / anchor["output"]).read_text(encoding="utf-8"))
+    for anchor, art in loaded:
         expect = anchor["expect"] == "pass"
         if ctx.judge(art, rubric) != expect:
             return Verdict.inconclusive("judge", f"judge failed anchor calibration on {anchor['output']}")
@@ -334,74 +363,8 @@ def judge(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
 
 # --------------------------------------------------------------------------- #
 # no self-grading (§6 guardrail 4): the judge model must not be the model that
-# produced the run. Pure string comparison on normalized model ids.
+# produced the run.
 # --------------------------------------------------------------------------- #
-# Values that name no model. `litmus capture` writes "default" when it was not
-# told which model to use.
-_UNKNOWN_MODELS = {"", "default", "unknown", "none", "null"}
-_DATE_SUFFIX = re.compile(r"[-@]\d{8}$")
-_BEDROCK_VERSION = re.compile(r"-v\d+(:\d+)?$")
-_BEDROCK_PREFIX = re.compile(r"^(?:[a-z]+\.)?anthropic\.")
-
-
-def normalize_model_id(model: Any) -> Optional[str]:
-    """Reduce a model id to a comparable key, or None if it names no model.
-
-    Rules, applied in order:
-      1. lowercase and trim; "", "default", "unknown", "none" and "null" mean unknown
-      2. keep only the part after the last "/" (drops "anthropic/", "models/")
-      3. drop a Bedrock "<region>.anthropic." or "anthropic." prefix
-      4. drop a Bedrock "-vN" or "-vN:M" suffix, then "-latest"
-      5. drop a date suffix "-YYYYMMDD" or "@YYYYMMDD"
-      6. turn "." into "-" and drop a leading "claude-"
-      7. put the name words before the version numbers, so the older
-         "3-5-sonnet" order equals "sonnet-3-5"
-
-    So "claude-haiku-4-5-20251001", "anthropic/claude-haiku-4-5",
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0" and "haiku-4.5" all become
-    "haiku-4-5". A bare alias such as "haiku" stays "haiku".
-    """
-    if model is None:
-        return None
-    m = str(model).strip().lower()
-    if m in _UNKNOWN_MODELS:
-        return None
-    m = m.rsplit("/", 1)[-1]
-    m = _BEDROCK_PREFIX.sub("", m)
-    m = _BEDROCK_VERSION.sub("", m)
-    if m.endswith("-latest"):
-        m = m[: -len("-latest")]
-    m = _DATE_SUFFIX.sub("", m)
-    m = m.replace(".", "-")
-    if m.startswith("claude-"):
-        m = m[len("claude-"):]
-    parts = [p for p in m.split("-") if p]
-    words = [p for p in parts if not p.isdigit()]
-    numbers = [p for p in parts if p.isdigit()]
-    key = "-".join(words + numbers)
-    return key or None
-
-
-def same_model(a: Any, b: Any) -> bool:
-    """True if two model ids name the same model after `normalize_model_id`.
-
-    A bare alias with no version number ("haiku", "sonnet", "opus") matches any
-    model whose normalized id contains that word, because the alias can resolve
-    to any of them. Refusing to grade is the safe side of that ambiguity.
-    Unknown ids never match.
-    """
-    na, nb = normalize_model_id(a), normalize_model_id(b)
-    if na is None or nb is None:
-        return False
-    if na == nb:
-        return True
-    for alias, other in ((na, nb), (nb, na)):
-        if not any(ch.isdigit() for ch in alias) and "-" not in alias:
-            if alias in other.split("-"):
-                return True
-    return False
-
-
 def producing_model(run: AgentRun, ctx: EvalContext) -> Optional[str]:
     """The model that produced `run`: its `meta.model`, else the suite or case
     `target.model`. None if neither names a model."""
@@ -411,7 +374,7 @@ def producing_model(run: AgentRun, ctx: EvalContext) -> Optional[str]:
     return None
 
 
-def _self_grading(run: AgentRun, ctx: EvalContext):
+def _self_grading(run: AgentRun, ctx: EvalContext) -> Tuple[bool, str]:
     """Return (is_self_grading, message).
 
     (True, reason) when the judge model is the producing model. (False, warning)
@@ -423,12 +386,12 @@ def _self_grading(run: AgentRun, ctx: EvalContext):
     if normalize_model_id(judge_model) is None:
         return False, (
             "no-self-grading check skipped: the judge does not report a model, so "
-            "Litmus cannot tell whether it produced the runs it grades"
+            "litmus cannot tell whether it produced the runs it grades"
         )
     if produced_by is None:
         return False, (
             "no-self-grading check skipped: some graded runs have no meta.model and "
-            "the suite has no target.model, so Litmus cannot tell whether the judge "
+            "the suite has no target.model, so litmus cannot tell whether the judge "
             f"model ({judge_model}) produced them"
         )
     if same_model(judge_model, produced_by):

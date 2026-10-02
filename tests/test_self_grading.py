@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from litmus import assertions as A
+from litmus import model_ids as A
 from litmus.adapters.claude_code import parse_stream
 from litmus.assertions import EvalContext, run_assertion
 from litmus.judge import ClaudeJudge, DEFAULT_JUDGE_MODEL, ScriptedJudge

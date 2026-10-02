@@ -47,5 +47,9 @@
         }
       }
     }
+  },
+  "litmus": {
+    "version": "0.2.0",
+    "judge": null
   }
 }

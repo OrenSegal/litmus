@@ -1,7 +1,7 @@
-"""Tests for M2-M6: stream parser, judge guardrails, matrix, index, HTML.
+"""Capture stream parser, judge guardrails, matrix, index and HTML report.
 
 All offline. The judge tests use ScriptedJudge (a deterministic fake) to prove
-the §6 guardrails without any model call.
+the trust-architecture guardrails (LITMUS_SPEC.md §6) without any model call.
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ class TestIndex(unittest.TestCase):
         entries = [IndexEntry.from_suite("a", "opus-4.8", good), IndexEntry.from_suite("b", "haiku-4.5", bad)]
         ranked = build_index(entries)
         self.assertEqual(ranked[0].skill, "b")  # worst green-rate first
-        self.assertIn("Hallucination Index", render_index(entries))
+        self.assertTrue(render_index(entries).startswith("litmus index\n"))
 
 
 class TestHtml(unittest.TestCase):

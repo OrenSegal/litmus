@@ -30,9 +30,16 @@ Runs precedence for a case: explicit `runs:` paths → `runs/<id>/*.json` → `r
 }
 ```
 
-`samples` runs the case N times over its N captured runs; each assertion reports
-a pass-rate and a case passes only if every assertion meets its threshold
-(default 1.0). An assertion neither reliably green nor red is flagged `~flaky`.
+`samples` declares how many captured runs the case is graded over; each
+assertion reports a pass-rate and a case passes only if every assertion meets
+its threshold (default 1.0). An assertion neither reliably green nor red is
+flagged `~flaky`. With fewer runs on disk than `samples`, the case is
+`INCONCLUSIVE` (or `FAIL`, if a run it has already fails).
+
+Every path a case names (`runs:`, `schema.ref`, judge `anchors[].output`) is
+relative to the suite directory and must stay inside it once `..` and symlinks
+are resolved. A path that leaves the suite fails that case; litmus never reads
+it, or sends it to a judge.
 
 ## AgentRun (what the engine grades)
 
@@ -54,7 +61,7 @@ except whatever your assertions read.
 It is also how the judge's no-self-grading check knows who produced the run: a
 `judge` assertion is INCONCLUSIVE, with no judge call, when `meta.model` names
 the judge model. Without `meta.model` the suite or case `target.model` is used;
-with neither (or the placeholder `default`), the run is graded and Litmus prints
+with neither (or the placeholder `default`), the run is graded and litmus prints
 one warning. `litmus capture` sets `meta.model` to your `--model`, or, without
 one, to the model the Claude CLI reports (kept as `meta.model_id` either way).
 

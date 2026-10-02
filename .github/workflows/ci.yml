@@ -4,19 +4,68 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests (offline, no deps)
+        run: python -m unittest discover -s tests -t .
+      - name: Dogfood — gate the example suite against its baseline
+        run: python -m litmus.cli gate examples/signal-scout --baseline examples/signal-scout/baseline.json
+      - name: Plugin wrapper runs the same engine
+        run: bin/litmus run examples/signal-scout --quiet
+
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Unit tests (offline, no deps)
-        run: python -m unittest discover -s tests -t .
-      - name: Dogfood — gate the example suite against its baseline
-        run: python -m litmus.cli gate examples/signal-scout --baseline examples/signal-scout/baseline.json
-      - name: Validate plugin manifest
+      - name: Install dev tools
+        run: python -m pip install "coverage>=7" "ruff==0.9.9" "mypy==1.11.2" "build>=1" "twine>=5"
+      - name: Ruff
+        run: ruff check litmus tests
+      - name: Mypy (config in pyproject.toml)
+        run: mypy
+      - name: Coverage (floor in pyproject.toml)
         run: |
-          npm install -g @anthropic-ai/claude-code
-          claude plugin validate .
+          coverage run -m unittest discover -s tests -t .
+          coverage report
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+          twine check dist/*
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate plugin, marketplace, commands and skills (strict)
+        run: |
+          claude plugin validate . --strict
+          claude plugin validate .claude-plugin/plugin.json --strict
+          claude plugin validate .claude-plugin/marketplace.json --strict
+          claude plugin validate commands --strict
+          claude plugin validate skills --strict
+      - name: npm installer still copies the skill
+        run: |
+          node bin/install.js --dir "$RUNNER_TEMP/skill"
+          test -f "$RUNNER_TEMP/skill/SKILL.md"

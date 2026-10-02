@@ -8,9 +8,9 @@ description: >-
   from vibes into a red/green diff.
 ---
 
-# Litmus — red/green CI for prompt-ware
+# litmus: red/green regression tests for skills, prompts and tool definitions
 
-Litmus tests the *behavior* of a skill, not its scripts. You pin golden tasks
+litmus tests the *behavior* of a skill, not its scripts. You pin golden tasks
 (cases), each with assertions over what the agent actually did, and get a
 red/green diff. Underneath it is a verification harness: **a green only ever
 comes from a check that could have failed.** A judge (LLM-graded) verdict that
@@ -24,12 +24,19 @@ before adding any `judge` assertion.
 
 ## Engine
 
-Litmus is a stdlib-only Python CLI. Install once:
+litmus is a stdlib-only Python CLI (Python 3.10+). Installed as a Claude Code
+plugin, `litmus` is already on the Bash tool's PATH (the plugin's `bin/litmus`),
+and `/litmus:run`, `/litmus:gate` and `/litmus:new-case` call it. Elsewhere:
 
 ```bash
-pip install litmus-ci        # provides the `litmus` command
+pip install git+https://github.com/OrenSegal/litmus   # provides the `litmus` command (not on PyPI yet)
 # or, from a checkout:  python3 -m litmus.cli ...
 ```
+
+Exit codes: 0 green / no regression, 1 red / regression, 2 the suite could not
+be evaluated (bad file, path outside the suite, judge or capture error).
+`litmus status <suite>` says how many runs were captured live versus written by
+hand, which is what a green on that suite actually proves.
 
 ## The workflow
 
@@ -87,7 +94,7 @@ pip install litmus-ci        # provides the `litmus` command
 - **Assert invariants, not exact strings.** Model output is stochastic. Use
   `must_run`, `must_not`, `schema`, `equals` on a typed field, `resolves`,
   `grounded` — not brittle full-text matches. Set `samples: N` for anything
-  flaky-prone; Litmus reports pass-rates and flags flaky assertions.
+  flaky-prone; litmus reports pass-rates and flags flaky assertions.
 - **A `judge` assertion is INCONCLUSIVE unless you pass `--judge claude`, by
   design.** It also needs at least one pass and one fail anchor. Don't "fix" an
   INCONCLUSIVE by loosening: add anchors and run with `--judge claude`
@@ -98,6 +105,6 @@ pip install litmus-ci        # provides the `litmus` command
 ## CI snippet
 
 ```yaml
-- run: pip install litmus-ci
+- run: pip install git+https://github.com/OrenSegal/litmus
 - run: litmus gate suite/ --baseline suite/baseline.json
 ```

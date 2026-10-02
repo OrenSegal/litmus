@@ -157,7 +157,7 @@ class TestCliJudge(unittest.TestCase):
 
         def fake_run(argv, **kwargs):
             argvs.append(argv)
-            verdict = "PASS" if '"opener": "specific"' in argv[2] else "FAIL"
+            verdict = "PASS" if '"opener": "specific"' in kwargs["input"] else "FAIL"
             return subprocess.CompletedProcess(argv, 0, stdout=f"{verdict}\nreason", stderr="")
 
         with tempfile.TemporaryDirectory() as d, \
@@ -168,7 +168,7 @@ class TestCliJudge(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("1/1 green", out)
         self.assertEqual(len(argvs), 3)
-        self.assertTrue(all(a[:2] == ["claude", "-p"] and a[3:] == ["--model", "m1"] for a in argvs))
+        self.assertTrue(all(a[:4] == ["claude", "-p", "--model", "m1"] for a in argvs))
 
     def test_judge_model_without_judge_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:
