@@ -9,9 +9,9 @@ case genuinely needs the full spec.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Union
 
-_TYPES = {
+_TYPES: Dict[str, Union[type, Tuple[type, ...]]] = {
     "object": dict,
     "array": list,
     "string": str,

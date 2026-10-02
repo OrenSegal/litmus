@@ -1,4 +1,4 @@
-"""Litmus engine tests — pure, offline, no model, no network, no API key.
+"""litmus engine tests — pure, offline, no model, no network, no API key.
 
 The grounding assertions use a DictFetcher so even `resolves`/`grounded` run
 with no network. This file is the proof that the graded core is deterministic.

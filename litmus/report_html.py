@@ -10,6 +10,7 @@ import html
 import json
 
 from .models import Status, SuiteResult
+from .report import first_problem, rate_label, summary_line
 
 _CSS = """
 :root{--bg:#fff;--fg:#1a1a1a;--muted:#6b6b6b;--line:#e6e6e6;
@@ -35,15 +36,13 @@ def _badge(status: Status) -> str:
 
 
 def render_html(result: SuiteResult) -> str:
-    counts = {s: sum(1 for c in result.cases if c.status is s) for s in Status}
     parts = [
         "<!doctype html><html><head><meta charset='utf-8'>",
         "<meta name='viewport' content='width=device-width,initial-scale=1'>",
         f"<title>litmus · {html.escape(result.name)}</title><style>{_CSS}</style></head><body>",
         f"<h1>litmus · {html.escape(result.name)}</h1>",
         f"<div class='sub'>{html.escape(json.dumps(result.target))}</div>",
-        f"<div class='summary-bar'>{counts[Status.PASS]}/{len(result.cases)} green · "
-        f"{counts[Status.FAIL]} failing · {counts[Status.INCONCLUSIVE]} inconclusive · {counts[Status.SKIP]} skipped</div>",
+        f"<div class='summary-bar'>{summary_line(result)}</div>",
     ]
     for case in result.cases:
         openattr = "" if case.status is Status.PASS else " open"
@@ -53,11 +52,12 @@ def render_html(result: SuiteResult) -> str:
         if case.error:
             parts.append(f"<div class='detail'>{html.escape(case.error)}</div>")
         for a in case.assertions:
-            rate = "" if a.pass_rate in (0.0, 1.0) else f" ({a.pass_rate:.0%})"
-            parts.append(f"<div class='a'>{_badge(a.status)}<code>{html.escape(a.name)}{rate}</code></div>")
-            bad = next((v for v in a.verdicts if v.status is not Status.PASS and v.detail), None)
-            if bad and a.status is not Status.PASS:
-                parts.append(f"<div class='detail'>→ {html.escape(bad.detail)}</div>")
+            rate = rate_label(a)
+            parts.append(f"<div class='a'>{_badge(a.status)}<code>{html.escape(a.name)}"
+                         f"{' ' + rate if rate else ''}</code></div>")
+            problem = first_problem(a)
+            if problem:
+                parts.append(f"<div class='detail'>→ {html.escape(problem)}</div>")
         parts.append("</details>")
     parts.append("</body></html>")
     return "".join(parts)

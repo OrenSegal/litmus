@@ -1,25 +1,24 @@
 """Core data model. Everything the engine reads or produces lives here.
 
 The one contract that matters is `AgentRun`: the captured artifact of a single
-agent execution. Adapters (transcript, claude-code, agent-sdk) produce it; the
-engine only ever consumes it. Keeping this the sole input is what makes the
-engine pure and testable without a model or an API key.
+agent execution. Run files on disk and `litmus capture` produce it; the engine
+only ever consumes it. Keeping this the sole input is what makes the engine
+pure and testable without a model or an API key. Its JSON shape is in
+LITMUS_SPEC.md §3.
 """
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 
 class Status(str, Enum):
     """Verdict severity. Ordered worst-first via `rank` for aggregation.
 
     INCONCLUSIVE exists so a judge that can't prove its grade never reports a
-    green — the load-bearing rule of the whole product (see LITMUS_SPEC §6).
+    green — the load-bearing rule of the whole product (LITMUS_SPEC.md §2).
     """
 
     FAIL = "FAIL"
@@ -37,7 +36,7 @@ class Status(str, Enum):
         return self is Status.PASS
 
 
-def worst(statuses: List["Status"]) -> "Status":
+def worst(statuses: Sequence["Status"]) -> "Status":
     if not statuses:
         return Status.SKIP
     return min(statuses, key=lambda s: s.rank)
@@ -81,9 +80,18 @@ class AgentRun:
             meta=dict(obj.get("meta", {})),
         )
 
-    @classmethod
-    def load(cls, path: Path) -> "AgentRun":
-        return cls.from_obj(json.loads(Path(path).read_text(encoding="utf-8")))
+    def to_obj(self) -> Dict[str, Any]:
+        """The JSON object `from_obj` reads back into an equal AgentRun."""
+        return {
+            "meta": self.meta,
+            "tool_calls": [{"name": c.name, "input": c.input} for c in self.tool_calls],
+            "final_text": self.final_text,
+            "transcript": self.transcript,
+            "output": self.output,
+            "cost_usd": self.cost_usd,
+            "tokens": self.tokens,
+            "latency_ms": self.latency_ms,
+        }
 
 
 @dataclass
@@ -174,6 +182,13 @@ class SuiteResult:
     @property
     def green(self) -> bool:
         return all(c.status is Status.PASS for c in self.cases)
+
+    def counts(self) -> Dict[Status, int]:
+        """How many cases ended in each status, every status present."""
+        counts = {s: 0 for s in Status}
+        for c in self.cases:
+            counts[c.status] += 1
+        return counts
 
     def to_baseline(self) -> Dict[str, Any]:
         return {

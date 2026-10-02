@@ -40,7 +40,7 @@ function main() {
   copyRecursive(SOURCE_DIR, targetDir);
 
   console.log(`Installed litmus skill to ${targetDir}`);
-  console.log("Engine (CLI): pip install litmus-ci   # provides the `litmus` command");
+  console.log("Engine (CLI): pip install git+https://github.com/OrenSegal/litmus   # provides the `litmus` command");
   console.log("Then in Claude Code / OpenCode:");
   console.log("  /litmus            # author or run a suite");
   console.log("  litmus run <suite> # red/green from the terminal");

@@ -1,11 +1,11 @@
-"""URL fetching + evidence-grounding — the reusable core of verify_sources.py.
+"""URL fetching and evidence grounding for `resolves` and `grounded`.
 
 The `resolves` and `grounded` assertions need to read live pages. That's I/O,
 so it is injected: assertions take a `Fetcher`, the default hits the network,
 and tests pass a `DictFetcher` so the whole engine still runs offline with no
 network and no API key.
 
-Ported verbatim in spirit from signal-scout/scripts/verify_sources.py:
+The rules come from signal-scout's `verify_sources.py`:
   - old.reddit.com rewrite (reddit serves a bot-verification stub to scripts)
   - BOT_WALLED domains that 403/429 real fetches (unverifiable, NOT dead)
   - page-length-invariant word-overlap grounding (a short true quote inside a
@@ -19,11 +19,17 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 from urllib.parse import urlparse
 
 BOT_WALLED_DOMAINS = ("reddit.com", "x.com", "twitter.com", "linkedin.com", "glassdoor.com", "indeed.com")
 CHALLENGE_MARKERS = ("please wait for verification", "checking your browser")
+
+
+def is_http_url(value: Any) -> bool:
+    """True for an http(s) URL string: the only thing litmus will fetch.
+    URLs come from model output, so file://, ftp:// and the rest never are."""
+    return isinstance(value, str) and value.startswith(("http://", "https://"))
 
 
 @dataclass
@@ -65,15 +71,15 @@ class _TextExtractor(HTMLParser):
         self._chunks: list[str] = []
         self._skip = False
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         if tag in ("script", "style"):
             self._skip = True
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in ("script", "style"):
             self._skip = False
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if not self._skip:
             self._chunks.append(data)
 
@@ -82,13 +88,15 @@ class _TextExtractor(HTMLParser):
 
 
 class UrllibFetcher:
-    """Default network fetcher. Mirrors verify_sources.py behavior."""
+    """Default network fetcher."""
 
     def fetch(self, url: str, timeout: int = 10) -> FetchResult:
         domain = bot_walled_host(url)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (litmus verifier)"})
+        if not is_http_url(url):
+            return FetchResult(None, "")
+        req = urllib.request.Request(_canonicalize(url), headers={"User-Agent": "Mozilla/5.0 (litmus verifier)"})
         try:
-            with urllib.request.urlopen(_canonicalize(url), timeout=timeout) as resp:  # type: ignore[arg-type]
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 status = resp.status
                 charset = resp.headers.get_content_charset() or "utf-8"
                 raw = resp.read(2_000_000).decode(charset, errors="ignore")

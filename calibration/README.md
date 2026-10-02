@@ -46,5 +46,3 @@ FAIL is the positive class, because catching failures is the judge's job.
 - **Cohen's kappa**: agreement corrected for chance. On a set that's 90% passes, a judge that always says PASS scores 0.90 accuracy and a kappa of 0. Report kappa, not accuracy.
 
 `--min-kappa 0.6` exits 1 below that value, so a judge can be re-checked in CI after a model or prompt change.
-
-A write-up template is in [`WRITEUP.md`](./WRITEUP.md).

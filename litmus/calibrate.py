@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from .assertions import normalize_model_id, same_model
+from .model_ids import normalize_model_id, same_model
 
 VERDICTS = ("pass", "fail")
 _FIELDS = ("id", "artifact", "rubric", "human", "judge", "model")
@@ -89,7 +89,7 @@ def load_samples(path: Path) -> List[Sample]:
             id=sid,
             artifact=row["artifact"],
             rubric=row["rubric"],
-            human=_verdict(row["human"], f"{where} human", required=True),
+            human=str(_verdict(row["human"], f"{where} human", required=True)),
             judge=_verdict(row.get("judge"), f"{where} judge", required=False),
             model=row.get("model"),
             extra={k: v for k, v in row.items() if k not in _FIELDS},

@@ -1,7 +1,7 @@
 # Trust architecture — why a judge is INCONCLUSIVE by default
 
 Every eval tool has the same silent failure mode: the judge is a model, and a
-model scoring its own kind of work rubber-stamps it. Litmus's rule:
+model scoring its own kind of work rubber-stamps it. litmus's rule:
 
 > A green only ever comes from a check that could have failed. A judge verdict
 > that can't be falsified against an anchor or a deterministic guardrail is
@@ -38,7 +38,7 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    on the same case. Checkable truth outranks opinion.
 
 4. **No self-grading.** The judge model is decoupled from the target model and
-   sees only `{artifact, rubric}`, never "you produced this." Litmus enforces
+   sees only `{artifact, rubric}`, never "you produced this." litmus enforces
    the model side too: before any judge call, it compares the judge model
    (`--judge-model`) with the model that produced the run (the run's
    `meta.model`, else the suite or case `target.model`). If they are the same
@@ -49,7 +49,7 @@ A `judge` assertion earns a `PASS` only if **all four** guardrails hold:
    `claude-haiku-4-5-20251001` and `haiku-4.5` are the same model, and a bare
    alias like `haiku` matches every haiku. If the producing model is unknown
    (no `meta.model`, or `default`, and no `target.model`), the run is graded as
-   before and Litmus prints one warning to stderr per command. Tag your runs
+   before and litmus prints one warning to stderr per command. Tag your runs
    with `meta.model` so the check can run. The exact normalization rule is in
    `LITMUS_SPEC.md` §6. From Python, a judge callable without a `model`
    attribute skips the check (graded, with a warning), and warnings are

@@ -15,11 +15,11 @@ trusted unconditionally; `judge` is trusted only through the guardrails in
 | `schema` | `{path?, schema}` or `{path?, ref}` | value(s) at `path` validate (JSON-Schema subset) |
 | `equals` | `{path, value}` | every match at `path` equals `value` (absent → FAIL) |
 | `contains` | `{path, value}` | some string at `path` contains the substring |
-| `matches` | `{path, pattern}` | some string at `path` matches the regex |
+| `matches` | `{path, pattern, timeout?}` | some string at `path` matches the regex (search capped at `timeout` s, default 2; a timeout is FAIL) |
 | `count` | `{path, op, value}` | `count(path) op value`, op ∈ `>= <= == != > <` |
-| `budget` | `{cost_usd? tokens? latency_ms?}` | run within envelope (missing telemetry → INCONCLUSIVE) |
+| `budget` | `{cost_usd? tokens? latency_ms?}` | run within envelope (missing telemetry → INCONCLUSIVE; `{}` or an unknown key → FAIL) |
 | `resolves` | `"$..source_url"` or `{path}` | every cited URL resolves (bot-walled → INCONCLUSIVE, not dead) |
-| `grounded` | `{claim, source, threshold?}` | cited claim's words appear on the fetched source page |
+| `grounded` | `{claim, source, threshold?}` | cited claim's words appear on the fetched source page (claims and sources pair by position, so unequal counts → FAIL; a source that isn't an http(s) URL → INCONCLUSIVE) |
 
 `resolves` / `grounded` are the generalized `verify_sources.py` — they read live
 pages via an injectable fetcher (offline in tests). `resolves` treats a
@@ -38,5 +38,10 @@ FAIL. See trust-architecture.md before using it.
 ## Verdict statuses
 
 `PASS` · `FAIL` · `INCONCLUSIVE` (unfalsifiable — never counts as green) · `SKIP`
+
+A case is green when at least one assertion is `PASS` and every other one is
+`PASS` or `SKIP`. A case whose assertions all `SKIP` is `SKIP`: nothing was
+checked. A case with fewer runs on disk than its `samples` is at best
+`INCONCLUSIVE`.
 (nothing to check, e.g. no URLs). A case is green only if every assertion is
 PASS or SKIP.

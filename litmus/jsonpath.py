@@ -1,6 +1,6 @@
 """A tiny, dependency-free JSONPath resolver.
 
-Supports exactly the selectors Litmus assertions need — nothing more, so it
+Supports exactly the selectors litmus assertions need — nothing more, so it
 stays small and auditable:
 
     $                root
