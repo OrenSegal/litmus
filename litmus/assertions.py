@@ -97,7 +97,7 @@ def _subset(sub: Dict[str, Any], sup: Dict[str, Any]) -> bool:
 
 @assertion("must_run")
 def must_run(config: Any, run: AgentRun, ctx: EvalContext) -> Verdict:
-    cfg = {"tool": config} if isinstance(config, str) else dict(config)
+    cfg: Dict[str, Any] = {"tool": config} if isinstance(config, str) else dict(config)
     tool = cfg["tool"]
     hits = _called(run, tool)
     if not hits:
