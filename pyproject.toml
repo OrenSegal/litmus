@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "litmus-ci"
 dynamic = ["version"]
-description = "Red/green regression tests for skills, prompts and tool definitions. A green only ever comes from a check that could have failed."
+description = "Mutation testing for LLM and agent eval suites. Can your eval fail? Breaks the skill on purpose and checks the evals notice."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Oren Segal" }]
-keywords = ["claude-code", "skills", "llm", "eval", "regression-testing", "prompt-engineering", "ci"]
+keywords = ["claude-code", "skills", "llm", "eval", "mutation-testing", "prompt-engineering", "ci"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

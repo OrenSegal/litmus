@@ -2,7 +2,7 @@
 # litmus: run the engine bundled with this plugin checkout, no pip install needed.
 #
 # Claude Code puts a plugin's bin/ on the Bash tool's PATH, so inside a session
-# `litmus run <suite>` works once the plugin is enabled. Elsewhere, call this
+# `litmus mutate <plugin>` works once the plugin is enabled. Elsewhere, call this
 # file by path or `pip install git+https://github.com/OrenSegal/litmus` for the same `litmus` command.
 # LITMUS_PYTHON picks the interpreter (default: python3, which must be >= 3.10).
 set -e

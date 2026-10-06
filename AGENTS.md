@@ -1,20 +1,22 @@
 # AGENTS.md
 
-litmus: red/green regression tests for skills, prompts and tool definitions.
-Part of [sous](https://github.com/OrenSegal/sous).
+litmus: mutation testing for LLM and agent eval suites. "Can your eval fail?"
 
-- **Engine**: `litmus/` — pure Python, stdlib-only, no model calls. Grades an
-  `AgentRun` (captured agent execution) against deterministic assertions.
-- **Skill**: `skills/litmus/SKILL.md` teaches an agent to author + run suites.
-- **CLI**: `litmus run | gate | bless | matrix | index | capture | calibrate | status`
-  (`pip install git+https://github.com/OrenSegal/litmus`, the plugin's `bin/litmus`, or `python3 -m litmus.cli`).
-- **Tests**: `python3 -m unittest discover -s tests -t .` (offline, no API key).
+- **Engine**: `litmus/`, pure Python, stdlib-only (PyYAML optional). Operators
+  (`operators.py`), mutant manifests (`mutants.py`), offline vacuity probes
+  (`vacuity.py`, `graders.py`), scoring (`scoring.py`), audit of existing
+  results (`audit.py`), reports (`report.py`), orchestration (`engine.py`).
+- **Adapters**: `litmus/adapters/`. `claude_plugin_eval.py` is the only one
+  that runs anything, and only through an injected `CommandRunner`.
+- **CLI**: `litmus mutate | vacuity | audit | operators`.
+- **Spec**: `SPEC.md`. Keep it and the code in step.
+- **Tests**: `python3 -m unittest discover -s tests -t .` (offline, no model).
 
-The invariant that defines the product: **a green only ever comes from a check
-that could have failed.** Judge verdicts without a falsifiable anchor are
-`INCONCLUSIVE`, never `PASS`. See `LITMUS_SPEC.md` §6 and
-`skills/litmus/references/trust-architecture.md`.
+The invariant: INCONCLUSIVE never counts as killed, and a grader litmus
+cannot evaluate is UNKNOWN, never PASS. A real run spends the user's credit, so
+`mutate` without `--dry-run` requires `--yes`; tests never call `claude`.
 
-When extending: keep the engine pure (grade JSON, never call a model — adapters
-do that), add a test for every new assertion, and never let a green come from an
-unfalsifiable check.
+When extending: a new operator needs a test that it is deterministic, keeps
+the frontmatter and skips code fences, plus a row in SPEC.md section 2. A new
+adapter implements the `Adapter` protocol in `adapters/base.py` and is tested
+with a fake runner.
