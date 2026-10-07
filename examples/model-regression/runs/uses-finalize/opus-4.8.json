@@ -1,5 +1,0 @@
-{
-  "meta": { "model": "opus-4.8" },
-  "tool_calls": [{ "name": "finalize.py", "input": {} }],
-  "output": { "status": "complete" }
-}

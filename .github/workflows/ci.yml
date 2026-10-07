@@ -22,10 +22,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Unit tests (offline, no deps)
         run: python -m unittest discover -s tests -t .
-      - name: Dogfood — gate the example suite against its baseline
-        run: python -m litmus.cli gate examples/signal-scout --baseline examples/signal-scout/baseline.json
+      - name: Demo mutation run from recordings (no model)
+        run: python -m litmus.cli mutate examples/demo-plugin --replay-results examples/demo-recordings --allow-vacuous --min-score 0.5 --quiet --out "$RUNNER_TEMP/demo"
       - name: Plugin wrapper runs the same engine
-        run: bin/litmus run examples/signal-scout --quiet
+        run: bin/litmus operators
 
   quality:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
       - name: Install dev tools
         run: python -m pip install "coverage>=7" "ruff==0.9.9" "mypy==1.11.2" "build>=1" "twine>=5"
       - name: Ruff
-        run: ruff check litmus tests
+        run: ruff check litmus tests examples
       - name: Mypy (config in pyproject.toml)
         run: mypy
       - name: Coverage (floor in pyproject.toml)
@@ -65,6 +65,7 @@ jobs:
           claude plugin validate .claude-plugin/marketplace.json --strict
           claude plugin validate commands --strict
           claude plugin validate skills --strict
+          claude plugin validate examples/demo-plugin --strict
       - name: npm installer still copies the skill
         run: |
           node bin/install.js --dir "$RUNNER_TEMP/skill"

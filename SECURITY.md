@@ -1,9 +1,7 @@
 # Security
 
-litmus grades captured agent runs and can invoke a judge model when you pass `--judge`.
-
 - Report a vulnerability through GitHub's private advisory form on this repo, not a public issue.
-- In scope: a crafted suite, case or run file that makes litmus execute code, read files outside the suite directory, or send data to a model you did not select.
-- What leaves your machine, and only when you ask: `--judge claude` sends the rubric and the graded artifact (and each anchor file) to `claude -p` over stdin, with tools disabled, no MCP servers, no saved session and an empty temporary working directory. `litmus capture` sends your prompt the same way and runs the agent with whatever tools your CLI settings allow, in the `--cwd` you give it. `resolves` and `grounded` fetch the http(s) URLs found in the run's output; those URLs come from the model, so run untrusted suites where outbound requests to internal hosts don't matter.
-- Hardened in 0.2.0: every path a suite names must resolve inside the suite directory (symlinks included); `matches` regexes are time-boxed; YAML loads with `safe_load`; the fetcher refuses non-http(s) schemes.
-- Out of scope: a green result that comes from assertions you wrote too loosely. Calibration exists to catch that; see `LITMUS_SPEC.md`.
+- What litmus runs: `litmus mutate` without `--dry-run` copies the plugin to a temp directory and runs `claude plugin eval <copy> --trust-plugin` once for the baseline and once per mutant, as you, on your credential. `--trust-plugin` is passed because each copy is a new directory; only point litmus at plugins you would run yourself. `--scaffold` and `--allow-tools` are passed through only when you give them.
+- `litmus vacuity`, `litmus audit` and `--dry-run` never run a model, and start no subprocess other than a time-boxed Python regex worker.
+- In scope: a crafted suite, grader or mutants manifest that makes litmus write outside its output directory or the temp copy, read files outside the suite, or execute code. Manifests naming a path outside the suite root, or with patched content that does not match its hash, are rejected.
+- Out of scope: what the plugin under test does inside `claude plugin eval`; see the runner's own isolation notes.

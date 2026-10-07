@@ -1,0 +1,7 @@
+{
+  "name": "changelog-demo",
+  "description": "Demo plugin for litmus: one skill and an eval suite with deliberate weak spots.",
+  "version": "0.0.1",
+  "author": { "name": "Oren Segal" },
+  "license": "MIT"
+}

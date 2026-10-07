@@ -1,25 +1,13 @@
-"""litmus: red/green regression tests for skills, prompts and tool definitions.
+"""litmus: mutation testing for LLM and agent eval suites.
 
-The engine grades an AgentRun (a captured artifact of one agent execution)
-against a set of deterministic assertions. It never calls a model — grading
-is pure and fully testable offline. See LITMUS_SPEC.md.
+Can your eval fail? litmus breaks the thing under test on purpose (deletes an
+instruction, inverts a rule, truncates a skill) and reruns your eval suite
+against each broken copy. The mutation score is the share of broken copies
+your evals caught. It also finds graders that cannot fail at all. See SPEC.md.
 """
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
-from .models import AgentRun, Verdict, Status, Case, CaseResult, SuiteResult
-from .runner import evaluate_case, evaluate_suite
-
-__all__ = [
-    "AgentRun",
-    "Verdict",
-    "Status",
-    "Case",
-    "CaseResult",
-    "SuiteResult",
-    "evaluate_case",
-    "evaluate_suite",
-    "__version__",
-]
+__all__ = ["__version__"]

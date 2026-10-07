@@ -1,10 +1,19 @@
 {
   "name": "litmus",
-  "description": "Red/green regression tests for skills, prompts and tool definitions. A green only ever comes from a check that could have failed.",
-  "version": "0.2.0",
-  "author": { "name": "Oren Segal" },
+  "description": "Mutation testing for LLM and agent eval suites. Can your eval fail? Breaks the skill on purpose and checks the evals notice.",
+  "version": "0.3.0",
+  "author": {
+    "name": "Oren Segal"
+  },
   "homepage": "https://github.com/OrenSegal/litmus",
   "repository": "https://github.com/OrenSegal/litmus",
   "license": "MIT",
-  "keywords": ["testing", "eval", "regression", "skills", "ci", "prompt-engineering", "verification"]
+  "keywords": [
+    "eval",
+    "mutation-testing",
+    "testing",
+    "skills",
+    "ci",
+    "verification"
+  ]
 }

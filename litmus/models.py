@@ -1,198 +1,74 @@
-"""Core data model. Everything the engine reads or produces lives here.
+"""Data shapes shared by every adapter: a suite, its cases and graders, and
+the result of running a suite once.
 
-The one contract that matters is `AgentRun`: the captured artifact of a single
-agent execution. Run files on disk and `litmus capture` produce it; the engine
-only ever consumes it. Keeping this the sole input is what makes the engine
-pure and testable without a model or an API key. Its JSON shape is in
-LITMUS_SPEC.md §3.
+Adapters translate their own formats into these. Nothing here knows about
+`claude plugin eval`, promptfoo or any other runner.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
-class Status(str, Enum):
-    """Verdict severity. Ordered worst-first via `rank` for aggregation.
+class Verdict(str, Enum):
+    """Outcome of one mutant or one probe. INCONCLUSIVE never counts as KILLED."""
 
-    INCONCLUSIVE exists so a judge that can't prove its grade never reports a
-    green — the load-bearing rule of the whole product (LITMUS_SPEC.md §2).
-    """
-
-    FAIL = "FAIL"
+    KILLED = "KILLED"
+    SURVIVED = "SURVIVED"
     INCONCLUSIVE = "INCONCLUSIVE"
-    SKIP = "SKIP"
-    PASS = "PASS"
+
+
+@dataclass
+class Grader:
+    name: str
+    type: str
+    weight: float = 1.0
+    arm: Optional[str] = None  # None | "with-only" | "both"
+    config: Dict[str, Any] = field(default_factory=dict)
+    body: str = ""  # rubric text for llm/baseline graders
+    source: Optional[Path] = None
 
     @property
-    def rank(self) -> int:
-        # lower = worse; used to pick the worst status in a group
-        return {"FAIL": 0, "INCONCLUSIVE": 1, "SKIP": 2, "PASS": 3}[self.value]
-
-    @property
-    def is_green(self) -> bool:
-        return self is Status.PASS
-
-
-def worst(statuses: Sequence["Status"]) -> "Status":
-    if not statuses:
-        return Status.SKIP
-    return min(statuses, key=lambda s: s.rank)
-
-
-@dataclass
-class ToolCall:
-    name: str
-    input: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_obj(cls, obj: Dict[str, Any]) -> "ToolCall":
-        return cls(name=str(obj.get("name", "")), input=dict(obj.get("input", {})))
-
-
-@dataclass
-class AgentRun:
-    """One captured execution. `output` is the agent's structured result
-    (the JSON it produced); `tool_calls` is the ordered list of tools it
-    invoked; the rest are optional telemetry for budget assertions."""
-
-    output: Any = None
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    final_text: str = ""
-    transcript: str = ""
-    cost_usd: Optional[float] = None
-    tokens: Optional[int] = None
-    latency_ms: Optional[float] = None
-    meta: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_obj(cls, obj: Dict[str, Any]) -> "AgentRun":
-        return cls(
-            output=obj.get("output"),
-            tool_calls=[ToolCall.from_obj(t) for t in obj.get("tool_calls", [])],
-            final_text=str(obj.get("final_text", "")),
-            transcript=str(obj.get("transcript", "")),
-            cost_usd=obj.get("cost_usd"),
-            tokens=obj.get("tokens"),
-            latency_ms=obj.get("latency_ms"),
-            meta=dict(obj.get("meta", {})),
-        )
-
-    def to_obj(self) -> Dict[str, Any]:
-        """The JSON object `from_obj` reads back into an equal AgentRun."""
-        return {
-            "meta": self.meta,
-            "tool_calls": [{"name": c.name, "input": c.input} for c in self.tool_calls],
-            "final_text": self.final_text,
-            "transcript": self.transcript,
-            "output": self.output,
-            "cost_usd": self.cost_usd,
-            "tokens": self.tokens,
-            "latency_ms": self.latency_ms,
-        }
-
-
-@dataclass
-class Verdict:
-    """Result of one assertion against one AgentRun."""
-
-    name: str
-    status: Status
-    detail: str = ""
-    evidence: Any = None
-
-    @classmethod
-    def passed(cls, name: str, detail: str = "", evidence: Any = None) -> "Verdict":
-        return cls(name, Status.PASS, detail, evidence)
-
-    @classmethod
-    def failed(cls, name: str, detail: str = "", evidence: Any = None) -> "Verdict":
-        return cls(name, Status.FAIL, detail, evidence)
-
-    @classmethod
-    def inconclusive(cls, name: str, detail: str = "", evidence: Any = None) -> "Verdict":
-        return cls(name, Status.INCONCLUSIVE, detail, evidence)
-
-    @classmethod
-    def skipped(cls, name: str, detail: str = "") -> "Verdict":
-        return cls(name, Status.SKIP, detail)
-
-
-@dataclass
-class AssertionResult:
-    """One assertion aggregated across a case's N samples."""
-
-    name: str
-    status: Status
-    pass_rate: float
-    threshold: float
-    samples: int
-    verdicts: List[Verdict] = field(default_factory=list)
-
-    @property
-    def flaky(self) -> bool:
-        # neither reliably green nor reliably red
-        return 0.0 < self.pass_rate < 1.0
-
-    def to_baseline(self) -> Dict[str, Any]:
-        return {"status": self.status.value, "pass_rate": round(self.pass_rate, 4)}
+    def deterministic(self) -> bool:
+        return self.type in ("regex", "tool_used", "tool_order", "file_exists")
 
 
 @dataclass
 class Case:
-    """A golden task. `runs` are the AgentRun sources (paths) for its samples;
-    the runner may also fill them by convention (see suite loader)."""
-
-    id: str
-    asserts: List[Dict[str, Any]] = field(default_factory=list)
-    target: Dict[str, Any] = field(default_factory=dict)
-    input: Any = None
-    samples: int = 1
-    runs: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-
-
-@dataclass
-class CaseResult:
-    id: str
-    status: Status
-    assertions: List[AssertionResult] = field(default_factory=list)
-    target: Dict[str, Any] = field(default_factory=dict)
-    error: str = ""
-
-    @property
-    def flaky(self) -> bool:
-        return any(a.flaky for a in self.assertions)
-
-    def to_baseline(self) -> Dict[str, Any]:
-        return {
-            "status": self.status.value,
-            "assertions": {a.name: a.to_baseline() for a in self.assertions},
-        }
-
-
-@dataclass
-class SuiteResult:
     name: str
-    cases: List[CaseResult] = field(default_factory=list)
-    target: Dict[str, Any] = field(default_factory=dict)
+    directory: Path
+    prompt: str
+    graders: List[Grader]
+    meta: Dict[str, Any] = field(default_factory=dict)
 
-    @property
-    def green(self) -> bool:
-        return all(c.status is Status.PASS for c in self.cases)
 
-    def counts(self) -> Dict[Status, int]:
-        """How many cases ended in each status, every status present."""
-        counts = {s: 0 for s in Status}
-        for c in self.cases:
-            counts[c.status] += 1
-        return counts
+@dataclass
+class Suite:
+    """An eval suite plus the subject it tests (a plugin directory, a prompt file...)."""
 
-    def to_baseline(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "target": self.target,
-            "cases": {c.id: c.to_baseline() for c in self.cases},
-        }
+    root: Path  # the directory the adapter copies to build a mutant
+    eval_dir: Path
+    cases: List[Case]
+    adapter: str
+
+
+@dataclass
+class CaseRun:
+    """One case's outcome in one suite run."""
+
+    score: Optional[float]  # None when nothing could be graded
+    error: Optional[str] = None
+
+
+@dataclass
+class SuiteRun:
+    """One execution of the whole suite, against the original or a mutant."""
+
+    ok: bool  # False: the run itself could not be trusted (crash, partial, auth)
+    cases: Dict[str, CaseRun] = field(default_factory=dict)
+    error: Optional[str] = None
+    cost_usd: Optional[float] = None
+    raw: Optional[Dict[str, Any]] = None

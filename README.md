@@ -1,143 +1,193 @@
 # litmus
 
-Part of [sous](https://github.com/OrenSegal/sous): tools for checking what coding agents actually do.
+**Can your eval fail?** Mutation testing for LLM and agent eval suites.
 
-**litmus: red/green regression tests for skills, prompts and tool definitions.** A green only ever comes from a check that could have failed.
+An eval suite that never goes red tells you nothing. litmus breaks the thing
+under test on purpose (deletes an instruction from a skill, inverts a rule,
+swaps two tool names, truncates the prompt, plants a wrong number) and runs
+your evals against each broken copy. The **mutation score** is the share of
+broken copies your evals caught. Every mutant they missed is listed with its
+diff, so you know which part of your prompt is untested.
 
-Skills, system prompts, and tool definitions are real software now: prose, schemas and scripts, shipped to other people's machines. The scripts get tests. The **prose that actually steers the model gets none.** So nobody can answer *"did editing SKILL.md make the agent better or worse?"* except by vibes, and every model upgrade silently re-rolls the dice on every installed skill.
+It also finds graders that cannot fail at all, offline and for free, before
+you spend anything on runs.
 
-litmus pins golden tasks, grades what the agent did on them, and returns a red/green diff against a baseline. Underneath it's a **verification harness for agent claims**: deterministic checks wrapped around model-graded output, so a model can't rubber-stamp its own work green (when litmus knows which model produced the run; see below).
+litmus runs on top of [`claude plugin eval`](https://code.claude.com/docs/en/plugin-evals),
+Claude Code's plugin eval runner. It does not replace it: the runner runs and
+grades, litmus asks whether those grades mean anything. The adapter interface
+is open so promptfoo and other runners can follow (see [SPEC.md](./SPEC.md)).
 
-> **The load-bearing rule:** a green only ever comes from a check that *could have failed*. A judge (LLM-graded) verdict that can't be falsified against an anchor or a deterministic guardrail is reported `INCONCLUSIVE`, never `PASS`.
+> The rule: a mutant only counts as killed when a trusted run shows it.
+> INCONCLUSIVE (a crashed, partial or rate-limited run, a baseline that was
+> never green, a stale mutant) never counts as killed.
 
-Design: [`LITMUS_SPEC.md`](./LITMUS_SPEC.md). The `resolves` and `grounded` checks generalize the source verification in [signal-scout](https://github.com/OrenSegal/signal-scout).
+## What it finds
 
-## Status
+| Check | Cost | Finds |
+|---|---|---|
+| `litmus vacuity` | free, offline | Graders that provably cannot fail (`tool_used` with `min: 0` and no `max`; a regex that matches the empty string), and cases a do-nothing run would turn green (empty reply, "Done.", a refusal, the prompt echoed back). |
+| `litmus audit` | free, offline | Reads results you already have. The no-plugin arm of a two-arm `claude plugin eval` run is a free "delete the whole plugin" mutant: cases that stay green without the plugin can't tell it from nothing. |
+| `litmus mutate` | one eval run per mutant | Mutation score, surviving mutants with diffs, per-operator breakdown, JSON and HTML report. |
 
-Everything below runs offline: no model, no network, no API key. Grading consumes an `AgentRun` JSON artifact, and the engine itself never calls a model, which keeps it deterministic and testable. Three things do call a model, and only when you ask: `litmus capture`, `judge` assertions when you pass `--judge claude`, and `litmus calibrate --judge claude`. All three run through the Claude CLI, which uses your `claude` login, or `ANTHROPIC_API_KEY` if you have set it. litmus never reads the key itself.
+## Quickstart
+
+```bash
+pip install git+https://github.com/OrenSegal/litmus     # Python 3.10+, no dependencies
+# optional, for case.yaml files that list graders: pip install "litmus-ci[yaml] @ git+https://github.com/OrenSegal/litmus"
+
+cd my-plugin                               # has .claude-plugin/plugin.json and evals/
+litmus vacuity .                           # free: graders that cannot fail
+litmus audit evals/results/*/aggregate-result.json   # free: reuse past two-arm runs
+litmus mutate . --dry-run                  # free: list the mutants and the cost estimate
+litmus mutate . --max-mutants 10 --runs 1 --max-cost-usd 5 --yes   # real run
+```
+
+A real run calls `claude plugin eval` once for the baseline and once per
+mutant, each against a temp copy of the plugin, on your Claude Code
+credential. That is why it needs `--yes`. Pass the same `--allow-tools`,
+`--scaffold` and `--model` flags you pass to `claude plugin eval`.
+
+Try it without spending anything, on the bundled demo (a changelog skill with
+a suite that has deliberate weak spots, and simulated recorded results; no
+model is called):
 
 ```bash
 git clone https://github.com/OrenSegal/litmus && cd litmus
-python3 -m unittest discover -s tests -t .        # the full suite, offline, no deps
-python3 -m litmus.cli run examples/signal-scout   # end-to-end, offline
-
-pip install git+https://github.com/OrenSegal/litmus  # installs the `litmus` command (not on PyPI yet)
+python3 -m litmus.cli mutate examples/demo-plugin --replay-results examples/demo-recordings
 ```
 
-It ships as a Python package (`litmus` CLI) and a Claude Code plugin (`skills/litmus/`, `/litmus:run`, `/litmus:gate`, `/litmus:new-case`, `bin/litmus`), with CI on Python 3.10 to 3.13 that gates this repo's own example suite.
+```
+vacuity: 1 vacuous, 0 always-fail, 2 null-pass grader(s); 1 null-green case(s), 1 judge-only case(s)
+  WEAK_RUBRIC   ends-with-version/mentions-version: rubric never says what FAILs (heuristic)
+  VACUOUS       ends-with-version/read-package-json (tool_used): min: 0 with no max accepts any number of calls, including none
+  NULL_GREEN    no-todo-left [ablation-none]: green on a do-nothing run (silent, done, refusal, echo)
+baseline: ok; green cases: tests-only-diff, ends-with-version, no-todo-left
+mutation score: 50% (5 killed / 10 run; 5 survived, 0 inconclusive, 0 not run)
+  SURVIVED     delete-instruction:skills/changelog/SKILL.md:2:380a077e: delete line 8: - Always end with the version number from `package.json`.
+  SURVIVED     invert-rule:skills/changelog/SKILL.md:1:55484473: line 8: 'Always' -> 'Never' in: - Always end with the version number from `package.json`.
+  SURVIVED     wrong-fact:skills/changelog/SKILL.md:0:2c9c4b4a: line 9: '20' -> '40' in: - Keep each bullet under 20 words.
+  ...
+```
 
-### What is proven, and what is fixture-only
+The survivors say it plainly: nothing in the suite checks the version rule
+or the bullet length. The `ends-with-version` case looks like it does, but its
+deterministic grader cannot fail and its judge rubric never says what fails.
 
-| Claim | Evidence in this repo |
+Output lands in `.litmus/<timestamp>/`: `report.json`, `report.html`, and
+`mutants.json`, the exact mutants that ran. Pass that file back with
+`--mutants` to replay the same mutants later (for example after a model
+release); a mutant whose source file changed since is reported stale, not run.
+
+## Mutation operators
+
+| Operator | Breaks |
 |---|---|
-| Assertions, roll-up, gate ratchet, matrix, index and calibrate math behave as documented | Proven offline: the unit tests, plus the example-suite gate in CI |
-| Crafted suites can't read outside their directory, hang the grader on a regex, or get a vacuous green | Proven offline: `tests/test_hardening.py`, one test per reproduced bug |
-| `litmus capture` turns Claude CLI stream-json into an `AgentRun`, and fails loudly when the CLI fails | Tested against fixture events and a mocked subprocess only. No captured run ships in this repo |
-| `--judge claude` sends what this README says, with tools disabled | Tested against a mocked subprocess and a fake `claude` script. Not run against a real model here |
-| `examples/signal-scout` shows the skill behaving correctly | **Fixture-only.** Its runs are hand-written; `litmus status examples/signal-scout` says so |
-| Judge agreement with human graders | **Not measured.** `litmus calibrate` exists; no labeled set has been run |
+| `delete-body` | the whole body; frontmatter kept |
+| `delete-instruction` | one directive line or list item |
+| `invert-rule` | one rule word: never/always, must/must not, do not/do |
+| `swap-tool-names` | two tool names or two inline-code commands, everywhere |
+| `truncate` | the second half of the body |
+| `wrong-fact` | one number or direction word (20 to 40, before to after) |
+| `drop-description` | the frontmatter description, so the skill should stop triggering |
 
-`litmus status <suite>` prints this for any suite: how many runs carry the
-`litmus capture` stamp versus how many are fixtures, which cases declare more
-`samples` than they have runs, how many `judge` assertions need `--judge`, and
-which judge the baseline was blessed with. The stamp is self-declared (a field in
-the run JSON), so it records provenance; it does not prove it.
+All are deterministic and skip code fences. LLM-written mutants are supported
+as recorded manifests replayed byte for byte; litmus does not generate them
+itself yet. Details, scoring and exit codes: [SPEC.md](./SPEC.md).
 
-To turn a fixture-only case into evidence about a live agent (this calls the
-Claude CLI and costs money; nothing in CI does it):
+## CI
+
+Exit 0 when the mutation score is at or above `--min-score` (default 0.5) and
+no grader is vacuous; 1 when the suite fails that bar; 2 when litmus could not
+evaluate (bad suite, untrusted or never-green baseline). `litmus vacuity` and
+`litmus audit` are free, so they fit on every PR; run `mutate` on a schedule
+or before a release.
+
+## Dogfood: my own plugin suites
+
+Run on 2026-10-06 against the eval suites of four of my Claude Code plugins
+(sous, cited, scoped, deuce): 9 cases, 18 graders. Only the free checks were
+run; no model was called.
+
+- **No proven-vacuous graders, no null-green cases.** The obvious failure
+  that retired litmus 0.2 is not present in these suites.
+- **Under the runner's default two-arm scoring, all 9 cases can only go red
+  through an LLM judge.** The deterministic graders that count are either
+  excluded in two-arm mode (`tool_used: Skill`, `arm: with-only`) or absence
+  guards that a do-nothing run passes. Whether these suites can fail rests
+  entirely on a Haiku judge reading a rubric. (`litmus vacuity`,
+  `with-without` mode.)
+- **2 of the 6 non-negative cases with saved two-arm results stayed green
+  with the plugin removed** in their latest full run (deuce has no saved
+  results): sous `test-audit-deletion` (1.00 without the
+  plugin) and scoped `deny-means-coordinate` (1.00 without the plugin, in both
+  runs on record). cited `invalid-claims-file` did the same in one of its two
+  runs. These evals do not measure the plugin. (`litmus audit` over the
+  saved `aggregate-result.json` files.)
+
+Not yet done: a paid `litmus mutate` run. The command for cited, about $2.70
+at list price for 8 mutants:
 
 ```bash
-scripts/capture-real-run.sh examples/signal-scout classify-solo-maintainer-as-individual \
-    sonnet-5 path/to/signal-scout-skill
+litmus mutate ../cited --files 'skills/*' --max-mutants 8 --runs 1 --max-cost-usd 5 \
+  --allow-tools Bash Write "WebFetch(domain:www.rfc-editor.org)" "WebFetch(domain:archive.org)" --yes
 ```
 
-It reads the case's `input` as the prompt, runs `litmus capture` in the skill's
-directory, writes `runs/<case>/live-<model>.json` (never overwriting), then prints
-`litmus run` and `litmus status`. It does not bless anything: a red live run is
-the result. Commit the run file if you want the evidence kept.
+## Why litmus was retired, and what it became
 
-## How it works
+litmus 0.2 (October 2026) was a red/green regression harness for skills and
+prompts. It graded captured agent runs against deterministic assertions and an
+anchored LLM judge, under one rule: a green only ever comes from a check that
+could have failed.
 
-```
-Suite ─ cases/*.json  +  runs/<case>/*.json (captured AgentRun samples)  +  baseline.json
- └─ Case ─ input + assertions[] + samples(N)
-      └─ Assertion ─ pure check over an AgentRun → Verdict(PASS|FAIL|INCONCLUSIVE|SKIP)
-```
+It broke its own rule. On 2026-10-02 I retired it from the sous marketplace
+with this note: "its deterministic assertions can pass when they could never
+fail (four assertions that cannot fail gave 1/1 green), and `claude plugin
+eval` covers the rest." The judge path was guarded: an unanchored judge was
+INCONCLUSIVE, never PASS. The deterministic path was not. An absence
+assertion such as `must_not: {field: "$.segments[*].opener"}` passes on any
+output that has no such field, including an empty one. Re-running the old
+example suites today against an empty run, 3 of their 10 assertions still
+pass, all `must_not`. I can't reconstruct which four assertions the original
+note counted, so treat that number as the note's, not as re-verified.
+
+Two lessons came out of it:
+
+1. A suite's greens are only as good as its ability to go red, and nobody
+   measures that. Not my old tool, not the runners.
+2. Running and grading is a solved problem now that `claude plugin eval`
+   exists. Competing with the platform's own runner is a losing position.
+
+So litmus is now the missing check on top of the runner: it asks whether the
+suite can fail, and measures how much of the prompt it actually covers. The
+old engine (assertions, judge, calibrate, matrix, index, capture) is removed;
+`git log` has it.
+
+## Limits
+
+- **Survivors are not always gaps.** Some mutants are equivalent: deleting a
+  redundant sentence changes nothing the model does. Read the list; do not
+  chase 100%.
+- **Noise.** With `--runs 1` a flaky case can fake a kill. Use `--runs 3` for
+  numbers you publish; the report shows `decided_score` (killed over killed
+  plus survived) next to the strict score.
+- **Prose only.** Hooks, scripts and MCP servers are not mutated. A plugin
+  whose behavior lives in a hook (the sous guard) gets little from prose
+  mutants.
+- **Probes approximate the runner.** litmus re-implements the four
+  deterministic grader types from the published docs and translates
+  JavaScript regexes to Python; anything it cannot translate is UNKNOWN, never
+  a pass. The real trace's init line and MCP mock calls are not modelled.
+- **Cost.** One full suite run per mutant. 20 mutants on a 3-case suite at 3
+  runs per case is about 189 agent runs.
+- **One adapter.** Only `claude plugin eval` today. The promptfoo adapter is
+  specified, not built.
+
+## Development
 
 ```bash
-litmus run     <suite> [--html out.html]  # evaluate, print red/green, exit 1 on any FAIL
-litmus gate    <suite> --baseline b.json   # diff vs baseline, exit 1 ONLY on regressions
-litmus bless   <suite>                     # snapshot current result as baseline (won't bless a live failure)
-litmus matrix  <suite> --reference opus-4.8 # case × model grid; exit 1 on cross-model regressions
-litmus index   <suite> [<suite> ...]       # rank suites worst-first by green rate
-litmus capture "<prompt>" --out run.json   # capture a live AgentRun via the Claude CLI
-litmus calibrate labels.jsonl              # judge vs your pass/fail labels: recall, precision, kappa
-litmus status  <suite>                     # what a green proves: captured vs fixture runs
+python3 -m unittest discover -s tests -t .   # offline, no model, no network
+ruff check litmus tests examples && mypy
+python3 examples/record_demo.py              # after editing the demo skill
 ```
 
-Exit codes are the same for every command: **0** green / no regression, **1** red
-(a case FAILed, a regression, `bless` refused), **2** the suite could not be
-evaluated: a malformed suite, case or baseline file, a path outside the suite,
-an unknown `--reference`, or a judge or capture that could not run. A broken
-input never shows up as an ordinary red.
-
-`gate` also fails when a case in the baseline is missing from the current run,
-or when an assertion that PASSed in the baseline FAILs now, even on a case that
-was already red. Baselines record the litmus version and judge model they were
-blessed with, and `gate` warns when the judge differs or the baseline names
-another suite.
-
-Inside Claude Code, the plugin adds `/litmus:run`, `/litmus:gate` and
-`/litmus:new-case`, and puts `bin/litmus` on the Bash tool's PATH, so no pip
-install is needed there.
-
-`run`, `gate`, `bless`, `matrix`, `index` and `calibrate` take `--judge claude` to grade `judge` assertions with the Claude CLI (`claude -p`), and `--judge-model <id>` to pick the judge model (default `claude-haiku-4-5-20251001`). Without `--judge`, no judge is built, nothing is sent to a model, and every `judge` assertion is `INCONCLUSIVE`. If you ask for a judge and it can't run (no `claude` on PATH, not logged in, an empty reply), the command stops with the reason on stderr and exits 2 rather than reporting `INCONCLUSIVE`. Use the same `--judge` setting for `bless` and `gate`: a baseline blessed with a judge records judge `PASS`es, and a gate run without one sees `INCONCLUSIVE` there and reports a regression.
-
-No self-grading is enforced: a judge never grades a run its own model produced. The producing model is the run's `meta.model`, or the suite or case `target.model` if the run has none. If it is the same model as `--judge-model` (compared after normalizing ids, so `claude-haiku-4-5-20251001` and `haiku-4.5` match, and a bare alias like `haiku` matches every haiku), the judge is not called and that assertion is `INCONCLUSIVE`. Note that the default judge is Haiku 4.5, so pass a different `--judge-model` when Haiku 4.5 is the model under test. If the producing model is unknown, the run is graded and one warning goes to stderr per command. The exact rule is in [`LITMUS_SPEC.md`](./LITMUS_SPEC.md) §6.
-
-Non-determinism is first-class: a case runs over N samples, each assertion reports a **pass-rate**, and anything neither reliably green nor reliably red is flagged **flaky**.
-
-## Assertions
-
-| | |
-|---|---|
-| `must_run` | a tool/script was invoked (optional args-subset, `before`/`after` order) |
-| `must_not` | a forbidden tool call, output `field`, or `phrase` never appeared |
-| `ordering` | tool A called before tool B |
-| `schema` | output at a JSONPath validates (dependency-free JSON-Schema subset) |
-| `equals` / `contains` / `matches` | deterministic value / substring / regex at a JSONPath |
-| `count` | cardinality at a JSONPath (`>=`, `<`, `==`, …) |
-| `budget` | cost / tokens / latency within envelope (missing telemetry → `INCONCLUSIVE`) |
-| `resolves` | every cited URL resolves, bot-wall-aware (`verify_sources.py` link check) |
-| `grounded` | cited claim's words actually appear on the fetched source, page-length-invariant |
-| `judge` | LLM-rubric. **`INCONCLUSIVE` unless you run with `--judge claude` (or pass a judge from Python), the judge model is not the model that produced the run, and the rubric has at least one pass and one fail anchor that the judge grades correctly** |
-
-`resolves`/`grounded` take an injectable `Fetcher`, so the whole engine, grounding included, runs offline in tests via a `DictFetcher`.
-
-## Case file
-
-```json
-{
-  "id": "classify-solo-maintainer-as-individual",
-  "assert": [
-    { "must_run": "finalize.py" },
-    { "schema": { "path": "$", "ref": "signal-scout.schema.json" } },
-    { "equals": { "path": "$.individuals[0].type", "value": "Individual" } },
-    { "must_not": { "field": "$.segments[*].opener" } }
-  ]
-}
-```
-
-Cases author in JSON (always) or YAML (with the optional `[yaml]` extra). See [`examples/signal-scout/`](./examples/signal-scout), a suite that ports signal-scout's `verify_sources.py` guarantees. `--reference` takes whatever `meta.model` label your runs carry; `examples/model-regression/` uses `opus-4.8` and `haiku-4.5`.
-
-## Limitations
-
-- **Judge agreement with a human has no published number yet.** Anchors prove a judge can tell one known pass from one known fail. They don't tell you how often it agrees with a careful human on real outputs. `litmus calibrate` computes that (recall, precision and Cohen's kappa against your labels; protocol in [`calibration/`](./calibration)), but no labeled set has been run and published.
-- **`panel: N` is not independent.** It repeats the same judge model and prompt N times, so it smooths sampling noise but shares every blind spot.
-- **The judge's answer is its reply's first word.** The first non-empty line must start with PASS or FAIL (markdown like `**PASS**` is fine); anything else stops the run with a judge error rather than guessing.
-- **`grounded` is lexical.** It checks that a claim's words appear on the fetched page, not that the page supports the claim. A page that mentions the words while contradicting them passes.
-- **One capture adapter.** `litmus capture` only speaks the Claude Code CLI's stream-json output.
-
-## License
-
-MIT © Oren Segal
+MIT. Oren Segal.

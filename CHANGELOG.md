@@ -1,6 +1,36 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+litmus is now a mutation tester for eval suites ("Can your eval fail?"). The
+0.2 regression engine is removed. See the README section "Why litmus was
+retired, and what it became".
+
+### Added
+
+- `litmus mutate`: seven deterministic operators (`delete-body`,
+  `delete-instruction`, `invert-rule`, `swap-tool-names`, `truncate`,
+  `wrong-fact`, `drop-description`), a baseline run and one
+  `claude plugin eval --ablation none` run per mutant, a mutation score where
+  INCONCLUSIVE never counts as killed, JSON and HTML reports, and a replayable
+  `mutants.json` manifest (also the format for recorded LLM-written mutants).
+- `litmus vacuity`: offline proofs that a grader cannot fail, and null probes
+  (empty reply, "Done.", refusal, echoed prompt) that find cases a do-nothing
+  run passes, in both scoring modes.
+- `litmus audit`: reads existing `aggregate-result.json` files and reports
+  cases that stayed green with the plugin removed, and graders that never failed.
+- Adapter interface (`litmus/adapters/base.py`) with a `claude-plugin-eval`
+  adapter; runners are injected, so tests and the demo never call a model.
+- `examples/demo-plugin` with simulated recordings; `SPEC.md`.
+
+### Removed
+
+- The 0.2 engine and its commands: `run`, `gate`, `bless`, `matrix`, `index`,
+  `capture`, `calibrate`, `status`, the assertion library, the judge, the
+  example suites, `LITMUS_SPEC.md` and `calibration/`. They remain in git
+  history at v0.2.0.
+
+## 0.2.x (never released)
 
 ### Changed
 

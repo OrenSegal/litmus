@@ -1,14 +1,34 @@
 {
   "name": "litmus-skills",
-  "version": "0.2.0",
-  "description": "Red/green regression tests for skills, prompts and tool definitions. A green only ever comes from a check that could have failed.",
-  "bin": { "litmus-skills": "bin/install.js" },
-  "files": ["bin", "skills"],
-  "scripts": { "postinstall": "node ./bin/install.js || true" },
-  "keywords": ["claude-code", "opencode", "claude-skill", "testing", "eval", "regression", "verification"],
+  "version": "0.3.0",
+  "description": "Mutation testing for LLM and agent eval suites. Can your eval fail? Breaks the skill on purpose and checks the evals notice.",
+  "bin": {
+    "litmus-skills": "bin/install.js"
+  },
+  "files": [
+    "bin",
+    "skills"
+  ],
+  "scripts": {
+    "postinstall": "node ./bin/install.js || true"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-skill",
+    "eval",
+    "mutation-testing",
+    "llm",
+    "testing",
+    "ci"
+  ],
   "author": "Oren Segal",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/OrenSegal/litmus.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OrenSegal/litmus.git"
+  },
   "homepage": "https://github.com/OrenSegal/litmus",
-  "engines": { "node": ">=16" }
+  "engines": {
+    "node": ">=16"
+  }
 }
