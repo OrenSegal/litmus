@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import shutil
 import unittest
 
@@ -10,6 +11,7 @@ from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter
 from litmus.audit import audit_result
 from litmus.cli import main
 from litmus.engine import MutateOptions, mutate
+from litmus.mutants import Mutant, sha256, write_manifest
 
 from .helpers import DEMO, ROOT, FakeRunner, TempDir, demo_scores, result_doc
 
@@ -69,6 +71,27 @@ class TestEngine(unittest.TestCase):
                          MutateOptions(manifest=d / "dry" / "mutants.json"))
             self.assertEqual({m["verdict"] for m in rep["mutants"]}, {"INCONCLUSIVE"})
             self.assertTrue(all("stale" in m["reason"] for m in rep["mutants"]))
+
+    def test_mutant_under_a_symlinked_directory_is_inconclusive_and_the_run_continues(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+            outside = d / "outside"
+            outside.mkdir()
+            (outside / "x.md").write_text("original\n")
+            os.symlink(outside, plugin / "shared")
+            skill = "skills/changelog/SKILL.md"
+            orig = (plugin / skill).read_text()
+            bad = Mutant("bad", "op", "shared/x.md", 0, "", sha256("original\n"), "mutated\n")
+            good = Mutant("good", "op", skill, 0, "", sha256(orig), orig.replace("release notes", "notes"))
+            write_manifest(d / "m.json", plugin, [bad, good])
+            runner = FakeRunner(demo_scores)
+            rep = mutate(ClaudePluginEvalAdapter(runner), plugin, d / "o", MutateOptions(manifest=d / "m.json"))
+            verdicts = {m["id"]: (m["verdict"], m["reason"]) for m in rep["mutants"]}
+            self.assertEqual(verdicts["bad"][0], "INCONCLUSIVE")
+            self.assertIn("unsafe mutant", verdicts["bad"][1])
+            self.assertEqual(verdicts["good"][0], "KILLED")
+            self.assertEqual((outside / "x.md").read_text(), "original\n")
 
 
 class TestCli(unittest.TestCase):

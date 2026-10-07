@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from . import __version__
 from .adapters.base import Adapter
 from .models import SuiteRun, Verdict
-from .mutants import Mutant, generate, load_manifest, materialize, select, stale, write_manifest
+from .mutants import Mutant, UnsafeMutantPath, generate, load_manifest, materialize, select, stale, write_manifest
 from .operators import OPERATORS
 from .scoring import MutantResult, classify, green_cases, summarize
 from .vacuity import analyze
@@ -138,7 +138,13 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
             results.append(r)
             continue
         log(f"[{i}/{len(mutants)}] {m.id}")
-        run = _run_once(adapter, suite, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs)
+        try:
+            run = _run_once(adapter, suite, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs)
+        except UnsafeMutantPath as exc:
+            r.verdict, r.reason = Verdict.INCONCLUSIVE, f"unsafe mutant: {exc}"
+            results.append(r)
+            log(f"    {r.verdict.value}: {r.reason}")
+            continue
         spent += run.cost_usd or 0.0
         verdict, killed_by, reason = classify(base, run, opts.threshold)
         r.verdict, r.killed_by, r.reason, r.cost_usd = verdict, killed_by, reason, run.cost_usd

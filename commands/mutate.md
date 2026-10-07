@@ -4,11 +4,13 @@ argument-hint: <plugin-dir> [--max-mutants N] [--files GLOB]
 ---
 
 Run the free litmus checks on the plugin the user named (default: the current
-directory), using the copy bundled with this plugin:
+directory), using the copy bundled with this plugin. Split `$ARGUMENTS` into
+the plugin directory and the mutation options (`--max-mutants`, `--files`):
+`vacuity` takes only the directory and rejects the mutation options.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/litmus" vacuity $ARGUMENTS
-"${CLAUDE_PLUGIN_ROOT}/bin/litmus" mutate $ARGUMENTS --dry-run
+"${CLAUDE_PLUGIN_ROOT}/bin/litmus" vacuity <plugin-dir>
+"${CLAUDE_PLUGIN_ROOT}/bin/litmus" mutate <plugin-dir> <mutation options> --dry-run
 ```
 
 If the plugin has saved results under its eval directory, also run

@@ -5,8 +5,8 @@ import os
 import unittest
 from pathlib import Path
 
-from litmus.mutants import (ManifestError, Mutant, generate, load_manifest, materialize, select, sha256, stale,
-                            write_manifest)
+from litmus.mutants import (ManifestError, Mutant, UnsafeMutantPath, generate, load_manifest, materialize, select,
+                            sha256, stale, write_manifest)
 from litmus.operators import OPERATORS, mutate_text, split_raw
 
 from .helpers import TempDir, make_plugin
@@ -154,6 +154,34 @@ class TestMutants(unittest.TestCase):
             self.assertTrue(os.path.islink(dest / "node_modules"))
             self.assertEqual((dest / "skills/s/SKILL.md").read_text(), ms[0].patched)
             self.assertNotEqual((root / "skills/s/SKILL.md").read_text(), ms[0].patched)
+
+    def test_materialize_never_writes_through_a_file_symlink(self):
+        with TempDir() as d:
+            root = make_plugin(d / "p")
+            shared = d / "shared.md"
+            shared.write_text("shared original\n")
+            os.symlink(shared, root / "skills/s/LINKED.md")
+            m = Mutant("x", "op", "skills/s/LINKED.md", 0, "", sha256("shared original\n"), "mutated\n")
+            dest = materialize(root, d / "copy", m)
+            self.assertFalse(os.path.islink(dest / "skills/s/LINKED.md"))
+            self.assertEqual((dest / "skills/s/LINKED.md").read_text(), "mutated\n")
+            self.assertEqual(shared.read_text(), "shared original\n")
+
+    def test_materialize_refuses_a_target_under_a_symlinked_directory(self):
+        with TempDir() as d:
+            root = make_plugin(d / "p")
+            outside = d / "outside"
+            outside.mkdir()
+            (outside / "x.md").write_text("original\n")
+            os.symlink(outside, root / "shared")
+            (root / "node_modules/dep").mkdir(parents=True)
+            (root / "node_modules/dep/README.md").write_text("dep\n")
+            for rel, path in (("shared/x.md", outside / "x.md"),
+                              ("node_modules/dep/README.md", root / "node_modules/dep/README.md")):
+                m = Mutant("x", "op", rel, 0, "", "0", "mutated\n")
+                with self.assertRaises(UnsafeMutantPath):
+                    materialize(root, d / ("copy-" + rel.split("/")[0]), m)
+                self.assertNotEqual(path.read_text(), "mutated\n")
 
     def test_diff_is_unified(self):
         m = Mutant("x", "op", "f.md", 0, "", "0", "a\nc\n")

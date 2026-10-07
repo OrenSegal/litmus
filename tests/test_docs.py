@@ -50,6 +50,15 @@ class TestDocs(unittest.TestCase):
                     "skills/litmus/SKILL.md", "commands/mutate.md"):
             self.assertNotIn("—", (ROOT / rel).read_text(encoding="utf-8"), rel)
 
+    def test_mutate_command_passes_only_the_plugin_dir_to_vacuity(self):
+        text = (ROOT / "commands/mutate.md").read_text(encoding="utf-8")
+        vacuity = [ln for ln in text.splitlines() if "/bin/litmus\" vacuity" in ln]
+        self.assertTrue(vacuity)
+        for ln in vacuity:
+            self.assertNotIn("$ARGUMENTS", ln)
+            self.assertNotIn("--max-mutants", ln)
+            self.assertNotIn("--files", ln)
+
 
 if __name__ == "__main__":
     unittest.main()

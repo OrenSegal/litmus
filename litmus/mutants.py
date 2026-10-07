@@ -93,6 +93,11 @@ def write_manifest(path: Path, root: Path, mutants: List[Mutant]) -> None:
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+class UnsafeMutantPath(ValueError):
+    """A mutant's file resolves outside its workspace (through a symlink), so
+    writing it could modify the original plugin."""
+
+
 class ManifestError(ValueError):
     pass
 
@@ -146,5 +151,11 @@ def materialize(root: Path, dest: Path, mutant: Optional[Mutant], results_rel: O
             os.symlink(src, dest / name)
     if mutant is not None:
         target = dest / mutant.file
+        dest_real = dest.resolve()
+        parent_real = target.parent.resolve()
+        if parent_real != dest_real and dest_real not in parent_real.parents:
+            raise UnsafeMutantPath(f"{mutant.file} resolves outside the mutant workspace (symlinked directory)")
+        if target.is_symlink():
+            target.unlink()  # never write through a file symlink into the original
         target.write_text(mutant.patched, encoding="utf-8")
     return dest
