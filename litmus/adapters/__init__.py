@@ -1,5 +1,21 @@
-"""Adapters produce the AgentRun the engine grades.
+"""Adapters connect litmus to an eval runner.
 
-`claude_code` captures a live run through the Claude CLI. Run files written
-any other way are read straight from the suite by `litmus.case.load_runs`.
+An adapter knows three things about its runner: how to read a suite into
+`litmus.models.Suite`, which files are the subject under test (what mutants
+are made from), and how to run the suite once against a directory and report
+per-case scores. Everything else (operators, vacuity probes, scoring, reports)
+is shared. See SPEC.md, "Adapter interface".
 """
+
+from __future__ import annotations
+
+from typing import Callable, Dict
+
+from .base import Adapter, CommandRunner, ReplayRunner, subprocess_runner
+from .claude_plugin_eval import ClaudePluginEvalAdapter
+
+__all__ = ["Adapter", "CommandRunner", "ReplayRunner", "subprocess_runner", "ADAPTERS", "ClaudePluginEvalAdapter"]
+
+ADAPTERS: Dict[str, Callable[..., Adapter]] = {
+    "claude-plugin-eval": ClaudePluginEvalAdapter,
+}

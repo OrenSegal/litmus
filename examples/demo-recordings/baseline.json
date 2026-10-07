@@ -1,0 +1,63 @@
+{
+ "schemaVersion": 1,
+ "claudeVersion": "simulated",
+ "costUsd": 0.0,
+ "partial": false,
+ "suite": {
+  "ablation": "none",
+  "threshold": 1
+ },
+ "cases": [
+  {
+   "name": "tests-only-diff",
+   "aggregates": {
+    "score": 1.0
+   },
+   "arms": {
+    "with": [
+     {
+      "score": 1.0,
+      "passed": true,
+      "error": null,
+      "graders": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "ends-with-version",
+   "aggregates": {
+    "score": 1.0
+   },
+   "arms": {
+    "with": [
+     {
+      "score": 1.0,
+      "passed": true,
+      "error": null,
+      "graders": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "no-todo-left",
+   "aggregates": {
+    "score": 1.0
+   },
+   "arms": {
+    "with": [
+     {
+      "score": 1.0,
+      "passed": true,
+      "error": null,
+      "graders": []
+     }
+    ]
+   }
+  }
+ ],
+ "aggregates": {
+  "casesTotal": 3
+ }
+}
