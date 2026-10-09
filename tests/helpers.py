@@ -36,9 +36,11 @@ class FakeRunner:
         self.returncode = returncode
         self.calls: List[List[str]] = []
         self.labels: List[str] = []
+        self.envs: List[Optional[Dict[str, str]]] = []
 
-    def __call__(self, argv, cwd, timeout, label):  # type: ignore[no-untyped-def]
+    def __call__(self, argv, cwd, timeout, label, env=None):  # type: ignore[no-untyped-def]
         self.calls.append(list(argv))
+        self.envs.append(env)
         self.labels.append(label)
         workdir = Path(argv[3])
         out = Path(cwd) / argv[argv.index("--json") + 1]  # relative paths resolve against cwd, as in a subprocess

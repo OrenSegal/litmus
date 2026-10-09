@@ -132,7 +132,7 @@ class Adapter(Protocol):
 
 `Suite`, `Case`, `Grader`, `SuiteRun` and `CaseRun` live in `litmus/models.py`
 and carry no runner-specific fields. Adapters shell out through an injected
-`CommandRunner(argv, cwd, timeout, label) -> CommandResult`; the real one is
+`CommandRunner(argv, cwd, timeout, label, env=None) -> CommandResult`; the real one is
 `subprocess_runner`. Tests and the offline demo inject a fake or
 `ReplayRunner`, so no test calls a model.
 
@@ -159,6 +159,12 @@ deterministic types; another adapter maps its own assertion types onto
   changes absolute scores; mixing modes would compare unlike numbers.
   `--trust-plugin` is needed because each copy is a new directory; only run
   litmus on plugins you would run yourself.
+- Runs with the caller's environment except PATH: every entry under the
+  Claude Code plugins directory (`$CLAUDE_CONFIG_DIR` or `~/.claude`, then
+  `plugins/`) is removed and the copy's `bin/` goes first. The runner passes
+  PATH through to the agent, and a Claude Code session puts each installed
+  plugin's `bin/` on it, so otherwise a mutant's eval can call the installed,
+  unmutated CLI of the plugin under test.
 - Reads the `--json` result (`schemaVersion: 1`). Exit 0 and 1 are normal runs
   (1 means a case fell below threshold, which is what a killed mutant looks
   like). A missing result, `partial: true`, or any other exit code makes the

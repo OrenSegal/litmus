@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol
 
 from ..models import Suite, SuiteRun
 
@@ -20,16 +20,21 @@ class CommandResult:
     stderr: str = ""
 
 
-# (argv, cwd, timeout_seconds, label) -> CommandResult. `label` is "baseline" or a
-# mutant id; real runners ignore it, replay and fake runners key on it.
-CommandRunner = Callable[[List[str], Path, Optional[float], str], CommandResult]
+class CommandRunner(Protocol):
+    """(argv, cwd, timeout_seconds, label, env) -> CommandResult. `label` is
+    "baseline" or a mutant id; real runners ignore it, replay and fake runners
+    key on it. `env` replaces the child's environment; None inherits ours."""
+
+    def __call__(self, argv: List[str], cwd: Path, timeout: Optional[float], label: str,
+                 env: Optional[Dict[str, str]] = None) -> CommandResult: ...
 
 
-def subprocess_runner(argv: List[str], cwd: Path, timeout: Optional[float], label: str) -> CommandResult:
-    if shutil.which(argv[0]) is None:
+def subprocess_runner(argv: List[str], cwd: Path, timeout: Optional[float], label: str,
+                      env: Optional[Dict[str, str]] = None) -> CommandResult:
+    if shutil.which(argv[0], path=(env or {}).get("PATH")) is None:
         return CommandResult(127, "", f"{argv[0]}: not found on PATH")
     try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         return CommandResult(124, "", f"timed out after {timeout}s")
     return CommandResult(p.returncode, p.stdout, p.stderr)
@@ -52,7 +57,8 @@ class ReplayRunner:
     def safe(label: str) -> str:
         return "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in label)
 
-    def __call__(self, argv: List[str], cwd: Path, timeout: Optional[float], label: str) -> CommandResult:
+    def __call__(self, argv: List[str], cwd: Path, timeout: Optional[float], label: str,
+                 env: Optional[Dict[str, str]] = None) -> CommandResult:
         self.calls.append(list(argv))
         src = self.results_dir / f"{self.safe(label)}.json"
         if not src.is_file():
