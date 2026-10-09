@@ -32,6 +32,8 @@ ul.surv{list-style:none;padding:0;margin:0 0 18px;border-top:1px solid var(--lin
 ul.surv li{padding:8px 0;border-bottom:1px solid var(--line);font-size:15px;display:flex;gap:12px}
 ul.surv li span.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:#fff;
 background:var(--surv);white-space:nowrap;align-self:flex-start;margin-top:2px}
+ul.surv li span.v.k{background:var(--kill)}
+.score .big.mid{color:var(--inc)}
 footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
 @media (max-width:480px){h1{font-size:2rem}.score .big{font-size:2.6rem}}
 </style>
@@ -57,9 +59,53 @@ counts in your favor. litmus runs on top of
 <a href="https://code.claude.com/docs/en/plugin-evals">claude plugin eval</a>
 and also finds graders that cannot fail at all, offline and for free.</p>
 
-<h2>Latest result: my own plugin (draft)</h2>
+<h2>Latest result: my own plugin</h2>
 <p class="muted">cited, a Claude Code plugin that checks every claim is on the
-page it cites. Second run: 3 eval cases, 8 mutants of its skill, 1 run each,
+page it cites. Third run: 3 eval cases, 14 mutants (7 of its skill, 7 of its
+check command), 1 run each, 2026-10-09.</p>
+
+<div class="score">
+  <div class="big mid">36%</div>
+  <div class="what">mutation score: 5 of 14 mutants caught</div>
+  <div class="detail">3 of 3 cases green at baseline &middot; 9 survived, 0 inconclusive &middot; $2.73</div>
+</div>
+
+<ul class="surv">
+  <li><span class="v k">KILLED</span><span>Command: emptied the whole body</span></li>
+  <li><span class="v k">KILLED</span><span>Command: cut the second half</span></li>
+  <li><span class="v k">KILLED</span><span>Command: replaced the description with "General helper."</span></li>
+  <li><span class="v k">KILLED</span><span>Skill: swapped the Read and Bash tool names</span></li>
+  <li><span class="v k">KILLED</span><span>Skill: cut the second half</span></li>
+  <li><span class="v">SURVIVED</span><span>Skill: emptied the whole body</span></li>
+  <li><span class="v">SURVIVED</span><span>Skill: replaced the description with "General helper."</span></li>
+  <li><span class="v">SURVIVED</span><span>Skill: deleted the paragraph that says what it is</span></li>
+  <li><span class="v">SURVIVED</span><span>Skill: inverted "cannot" to "can" in the failure it defends against</span></li>
+  <li><span class="v">SURVIVED</span><span>Skill: changed "before" to "after" in that paragraph</span></li>
+  <li><span class="v">SURVIVED</span><span>Command: deleted its opening line</span></li>
+  <li><span class="v">SURVIVED</span><span>Command: inverted "do not" to "do" in one input rule</span></li>
+  <li><span class="v">SURVIVED</span><span>Command: swapped the Write and Bash tool names</span></li>
+  <li><span class="v">SURVIVED</span><span>Command: changed "before" to "after" in its first line</span></li>
+</ul>
+
+<p>The suite catches damage to the command, which is what the agent actually
+follows, and mostly misses damage to the skill. Deleting the whole skill body
+changed nothing. Either that body is redundant with the command, or the suite
+needs a case where the skill does work the command does not. That is the kind
+of answer a suite that always stays green cannot give you.</p>
+
+<p>Getting a trustworthy run took three tries, and each fix is in the open.
+litmus now keeps installed plugin CLIs off the eval's PATH and copies the
+plugin once per run, so an edit in flight cannot leak into some mutants. The
+case that tests the method now checks against recorded copies of the cited
+pages instead of the live network, which the eval sandbox kept breaking.
+One run per case per mutant is still noisy: a single flaky run can fake a kill
+or a survival.</p>
+
+<p><a href="scores/cited-2026-10-09-r3/report.html">Full report with every diff</a>
+&middot; <a href="scores/cited-2026-10-09-r3/report.json">JSON</a></p>
+
+<h2>Second run, superseded</h2>
+<p class="muted">Second run: 3 eval cases, 8 mutants of its skill, 1 run each,
 2026-10-09.</p>
 
 <div class="score">
@@ -86,8 +132,8 @@ is now in the command too, but no paid run has measured it yet.</p>
 <p>One more disclosure: I edited the command file while the run was going,
 then reverted it, and one mutant started within seconds of the edit. Its
 networked case was red at baseline, so it cannot count either way, but its
-score in the report is not evidence about that mutant. That and the
-unmeasured fix are why this is still a draft.</p>
+score in the report is not evidence about that mutant. The third run above
+replaces this one.</p>
 
 <p><a href="scores/cited-2026-10-09-r2/report.html">Full report with every diff</a>
 &middot; <a href="scores/cited-2026-10-09-r2/report.json">JSON</a></p>

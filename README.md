@@ -231,6 +231,66 @@ Next run: point `--files` at `commands/*` as well as `skills/*` (litmus
 orders skills first under `--max-mutants`, so raise the cap or target
 commands directly), and do not touch the plugin while it runs.
 
+### Third paid run: cited, 2026-10-09
+
+Changes since run 2:
+
+- **litmus snapshots the plugin once per run.** Every run, baseline
+  included, copies that snapshot, so an edit in flight reaches no run.
+- **The networked case no longer needs the network.** A baseline-only eval
+  with the proxy instruction in place still failed: through Claude Code's
+  sandbox proxy, every page from rfc-editor.org came back to cited as
+  `IncompleteRead`, while `curl` through the same proxy worked. That is a
+  cited bug, tracked separately. `catch-fabricated-citation` now gets a
+  recorded cited cache of the five pages through a scaffold script, and the
+  prompt says the machine is offline. The run grants no network at all.
+- **Both files the agent can follow are mutated**: `skills/cited/SKILL.md`
+  and `commands/check.md`, one site per operator per file
+  (`--max-sites 1`), 14 mutants.
+
+```bash
+litmus mutate ../cited-evals --max-sites 1 --max-mutants 0 --runs 1 --max-cost-usd 5 \
+  --scaffold --allow-tools Bash Write --yes
+```
+
+**Mutation score 36% (5 killed / 14 run), 9 survived, 0 inconclusive.**
+The baseline was trusted with all 3 cases green. Cost: $2.73, plus $0.18 for
+the baseline-only check before it (the dry run estimated $4.50). Full
+report: [docs/scores/cited-2026-10-09-r3](./docs/scores/cited-2026-10-09-r3/report.html).
+
+Killed:
+
+- `commands/check.md` `delete-body`: both cited cases went red
+  (`catch-fabricated-citation` 0.17, `invalid-claims-file` 0).
+- `commands/check.md` `truncate` (first 8 of 16 lines kept): the disclosure
+  line went missing, and `invalid-claims-file` stopped running `cited` on
+  the file.
+- `commands/check.md` `drop-description`: no disclosure line, and the
+  invalid-file report failed its rubric.
+- `SKILL.md` `swap-tool-names` (Read and Bash swapped): the verdicts rubric
+  failed.
+- `SKILL.md` `truncate` (first 17 of 35 lines kept): the "N of M claims
+  verified against source" line went missing.
+
+Survived:
+
+- `SKILL.md`: `delete-body`, `delete-instruction` (line 6),
+  `invert-rule` (line 4), `wrong-fact` (line 6), `drop-description`.
+- `commands/check.md`: `delete-instruction` (line 2), `invert-rule`
+  (line 6), `swap-tool-names` (Write and
+  Bash), `wrong-fact` (line 2).
+
+The pattern is the finding: the suite catches damage to the command, which
+is what the agent follows, and mostly misses damage to the skill, because
+with the command intact the skill body barely matters. Deleting the whole
+`SKILL.md` body changed nothing. Either the skill body is redundant with
+the command, or the suite needs a case where the skill and not the command
+does the work.
+
+`--runs 1` means one run per case per mutant, so a single flaky run can fake
+a kill or a survival. The two kills that rest on one regex grader
+(`disclosed`) are the most exposed to that.
+
 ## Why litmus was retired, and what it became
 
 litmus 0.2 (October 2026) was a red/green regression harness for skills and
