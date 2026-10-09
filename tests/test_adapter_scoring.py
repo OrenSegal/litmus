@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
 import unittest
+from pathlib import Path
 
-from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter, SuiteError, parse_result
+from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter, SuiteError, eval_env, parse_result
 from litmus.models import CaseRun, SuiteRun, Verdict
 from litmus.scoring import MutantResult, classify, summarize
 
-from .helpers import DEMO, TempDir, make_plugin, result_doc, write_case
+from .helpers import DEMO, FakeRunner, TempDir, make_plugin, result_doc, write_case
 
 try:
     import yaml  # noqa: F401
@@ -67,6 +69,47 @@ class TestLoadSuite(unittest.TestCase):
                      "--no-publish", "--json", "--model sonnet", "--judge-model haiku", "--allow-tools Bash",
                      "--scaffold", "--case x*", "--eval-dir qa", "--max-cost-usd 1.50"):
             self.assertIn(frag, joined)
+
+
+class TestEvalEnv(unittest.TestCase):
+    def test_installed_plugin_bins_leave_path_and_the_copy_bin_goes_first(self):
+        with TempDir() as tmp:
+            home = tmp / "home"
+            installed = home / ".claude" / "plugins" / "cache" / "m" / "cited" / "0.3.0" / "bin"
+            installed.mkdir(parents=True)
+            other = tmp / "elsewhere" / ".claude" / "plugins" / "x" / "bin"
+            copy = make_plugin(tmp / "copy")
+            (copy / "bin").mkdir()
+            path = os.pathsep.join(["/usr/bin", str(installed), str(other), "/bin"])
+            env = eval_env(copy, {"HOME": str(home), "PATH": path, "KEEP": "1"})
+            self.assertEqual(env["PATH"].split(os.pathsep),
+                             [str((copy / "bin").resolve()), "/usr/bin", "/bin"])
+            self.assertEqual(env["KEEP"], "1")
+
+    def test_config_dir_override_and_no_bin_dir(self):
+        with TempDir() as tmp:
+            plugins = tmp / "cfg" / "plugins" / "p" / "bin"
+            plugins.mkdir(parents=True)
+            env = eval_env(make_plugin(tmp / "copy"),
+                           {"CLAUDE_CONFIG_DIR": str(tmp / "cfg"), "PATH": f"{plugins}{os.pathsep}/bin"})
+            self.assertEqual(env["PATH"], "/bin")
+
+    def test_every_run_gets_the_scrubbed_env(self):
+        with TempDir() as tmp:
+            root = make_plugin(tmp / "p")
+            write_case(root, "c", "p", {"g": "---\ntype: regex\npattern: x\n---\n"})
+            runner = FakeRunner(lambda w: result_doc({"c": 1.0}))
+            a = ClaudePluginEvalAdapter(runner)
+            leak = str(Path.home() / ".claude" / "plugins" / "cache" / "m" / "cited" / "0.3.0" / "bin")
+            old = os.environ.get("PATH", "")
+            os.environ["PATH"] = os.pathsep.join([leak, old])
+            try:
+                a.run(root, a.load_suite(root), tmp / "out", "baseline")
+            finally:
+                os.environ["PATH"] = old
+            env = runner.envs[0]
+            assert env is not None
+            self.assertNotIn(leak, env["PATH"].split(os.pathsep))
 
 
 class TestParseResult(unittest.TestCase):

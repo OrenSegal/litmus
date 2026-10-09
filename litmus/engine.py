@@ -25,6 +25,11 @@ REPORT_SCHEMA = "litmus.report/1"
 DEFAULT_RUN_COST_USD = 0.10
 
 
+def _run_cost(adapter: Adapter) -> float:
+    """An adapter whose runs are not agent runs may set `case_run_cost_usd`."""
+    return float(getattr(adapter, "case_run_cost_usd", None) or DEFAULT_RUN_COST_USD)
+
+
 class MutateOptions:
     def __init__(self, *, operators: Sequence[str] = tuple(OPERATORS), max_mutants: Optional[int] = 20,
                  max_sites: int = 5, manifest: Optional[Path] = None, threshold: float = 1.0,
@@ -41,11 +46,11 @@ class MutateOptions:
         self.runs = runs
 
 
-def _run_once(adapter: Adapter, suite: Any, mutant: Optional[Mutant], out_dir: Path, label: str,
+def _run_once(adapter: Adapter, suite: Any, source: Path, mutant: Optional[Mutant], out_dir: Path, label: str,
               keep: bool) -> SuiteRun:
     work = Path(tempfile.mkdtemp(prefix="litmus-"))
     try:
-        ws = materialize(suite.root, work / suite.root.name, mutant, adapter.results_rel(suite))
+        ws = materialize(source, work / suite.root.name, mutant, adapter.results_rel(suite))
         return adapter.run(ws, suite, out_dir, label)
     finally:
         if not keep:
@@ -72,7 +77,7 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     write_manifest(out_dir / "mutants.json", suite.root, mutants)
 
     n_cases = len(suite.cases)
-    est = (1 + len(mutants)) * n_cases * opts.runs * DEFAULT_RUN_COST_USD
+    est = (1 + len(mutants)) * n_cases * opts.runs * _run_cost(adapter)
     report: Dict[str, Any] = {
         "schema": REPORT_SCHEMA,
         "litmus_version": __version__,
@@ -105,8 +110,32 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
         report["score"] = summarize(results)
         return report
 
+    # Every run copies from one snapshot taken now, so an edit to the plugin
+    # while the run is in flight cannot reach some mutants and not others.
+    snap_dir = Path(tempfile.mkdtemp(prefix="litmus-snapshot-"))
+    try:
+        snapshot = materialize(suite.root, snap_dir / suite.root.name, None, adapter.results_rel(suite))
+
+        # Diffs come from the snapshot too, so each one describes the mutant that ran.
+        def snap_originals(m: Mutant) -> str:
+            p = snapshot / m.file
+            return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+        results = _run_all(adapter, suite, snapshot, mutants, out_dir, opts, report, n_cases, snap_originals, log)
+    finally:
+        if not opts.keep_workdirs:
+            shutil.rmtree(snap_dir, ignore_errors=True)
+    report["mutants"] = [r.to_obj() for r in results]
+    report["score"] = summarize(results)
+    return report
+
+
+def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant], out_dir: Path,
+             opts: MutateOptions, report: Dict[str, Any], n_cases: int, originals: Callable[[Mutant], str],
+             log: Callable[[str], None]) -> List[MutantResult]:
+    results: List[MutantResult] = []
     log(f"baseline: running {n_cases} case(s) x {opts.runs} run(s) on the unmutated copy")
-    base = _run_once(adapter, suite, None, out_dir / "runs" / "baseline", "baseline", opts.keep_workdirs)
+    base = _run_once(adapter, suite, snapshot, None, out_dir / "runs" / "baseline", "baseline", opts.keep_workdirs)
     greens = green_cases(base, opts.threshold) if base.ok else []
     report["baseline"] = {
         "ok": base.ok, "error": base.error, "cost_usd": base.cost_usd,
@@ -114,7 +143,7 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
         "green_cases": greens,
     }
     spent = base.cost_usd or 0.0
-    per_run = (base.cost_usd / (n_cases * opts.runs)) if base.cost_usd else DEFAULT_RUN_COST_USD
+    per_run = (base.cost_usd / (n_cases * opts.runs)) if base.cost_usd else _run_cost(adapter)
     stop_all = None
     if not base.ok:
         stop_all = f"baseline run untrusted: {base.error}"
@@ -128,7 +157,7 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
             r.verdict, r.reason = Verdict.INCONCLUSIVE, stop_all
             results.append(r)
             continue
-        why = stale(suite.root, m)
+        why = stale(snapshot, m)
         if why:
             r.verdict, r.reason = Verdict.INCONCLUSIVE, f"stale mutant: {why}"
             results.append(r)
@@ -139,7 +168,7 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
             continue
         log(f"[{i}/{len(mutants)}] {m.id}")
         try:
-            run = _run_once(adapter, suite, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs)
+            run = _run_once(adapter, suite, snapshot, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs)
         except UnsafeMutantPath as exc:
             r.verdict, r.reason = Verdict.INCONCLUSIVE, f"unsafe mutant: {exc}"
             results.append(r)
@@ -152,7 +181,5 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
         results.append(r)
         log(f"    {verdict.value}: {reason}")
 
-    report["mutants"] = [r.to_obj() for r in results]
-    report["score"] = summarize(results)
     report["spent_usd"] = round(spent, 4)
-    return report
+    return results

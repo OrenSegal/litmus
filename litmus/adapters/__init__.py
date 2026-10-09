@@ -13,9 +13,12 @@ from typing import Callable, Dict
 
 from .base import Adapter, CommandRunner, ReplayRunner, subprocess_runner
 from .claude_plugin_eval import ClaudePluginEvalAdapter
+from .shelfie_substitution import ShelfieSubstitutionAdapter
 
-__all__ = ["Adapter", "CommandRunner", "ReplayRunner", "subprocess_runner", "ADAPTERS", "ClaudePluginEvalAdapter"]
+__all__ = ["Adapter", "CommandRunner", "ReplayRunner", "subprocess_runner", "ADAPTERS", "ClaudePluginEvalAdapter",
+           "ShelfieSubstitutionAdapter"]
 
 ADAPTERS: Dict[str, Callable[..., Adapter]] = {
     "claude-plugin-eval": ClaudePluginEvalAdapter,
+    "shelfie-substitution": ShelfieSubstitutionAdapter,
 }

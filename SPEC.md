@@ -132,7 +132,7 @@ class Adapter(Protocol):
 
 `Suite`, `Case`, `Grader`, `SuiteRun` and `CaseRun` live in `litmus/models.py`
 and carry no runner-specific fields. Adapters shell out through an injected
-`CommandRunner(argv, cwd, timeout, label) -> CommandResult`; the real one is
+`CommandRunner(argv, cwd, timeout, label, env=None) -> CommandResult`; the real one is
 `subprocess_runner`. Tests and the offline demo inject a fake or
 `ReplayRunner`, so no test calls a model.
 
@@ -145,9 +145,10 @@ deterministic types; another adapter maps its own assertion types onto
 - Reads `evals/` (or `--eval-dir`, or the manifest's `experimental.evals`):
   `prompt.md` frontmatter and body, `case.yaml` (PyYAML needed for graders
   listed in it), `graders/*.md`. Skips `results/` and `mocks/`.
-- Each run copies the plugin to a temp directory (skipping `.git`, caches and
-  `evals/results`, symlinking `node_modules` and virtualenvs), applies at most
-  one mutant, and runs:
+- At the start of `mutate`, litmus snapshots the plugin once (skipping `.git`,
+  caches and `evals/results`, symlinking `node_modules` and virtualenvs). Each
+  run copies that snapshot, not the live directory, so an edit made while the
+  run is in flight reaches no run. Each copy gets at most one mutant and runs:
 
   ```
   claude plugin eval <copy> --ablation none --runs N --threshold T \
@@ -159,6 +160,12 @@ deterministic types; another adapter maps its own assertion types onto
   changes absolute scores; mixing modes would compare unlike numbers.
   `--trust-plugin` is needed because each copy is a new directory; only run
   litmus on plugins you would run yourself.
+- Runs with the caller's environment except PATH: every entry under the
+  Claude Code plugins directory (`$CLAUDE_CONFIG_DIR` or `~/.claude`, then
+  `plugins/`) is removed and the copy's `bin/` goes first. The runner passes
+  PATH through to the agent, and a Claude Code session puts each installed
+  plugin's `bin/` on it, so otherwise a mutant's eval can call the installed,
+  unmutated CLI of the plugin under test.
 - Reads the `--json` result (`schemaVersion: 1`). Exit 0 and 1 are normal runs
   (1 means a case fell below threshold, which is what a killed mutant looks
   like). A missing result, `partial: true`, or any other exit code makes the
@@ -167,7 +174,37 @@ deterministic types; another adapter maps its own assertion types onto
   cost ceiling is untrusted. A timeout or turn cap is behavior, not
   infrastructure: it is graded on what it produced, as the runner does.
 
-### 4.2 Next adapters (not built)
+### 4.2 `shelfie-substitution` (shipped)
+
+The first adapter for a prompt that an app sends to a model, outside Claude
+Code. It drives Shelfie's own runner and its fixed ground truth; no judge.
+
+- Suite root: a Shelfie checkout. Cases: one per fixture in
+  `tests/eval/golden_sets/substitution.json`, train split only, because
+  Shelfie holds the test split out of tuning loops.
+- Subject: `config/ai/prompts/substitution.json`. The template is a JSON string
+  array, so the line operators mostly hit `_doc` and `golden`, and
+  `delete-body` makes invalid JSON. Pass a recorded manifest (`--mutants`)
+  that mutates the template strings instead.
+- Run: `python3 scripts/ci/run-deterministic-ai-evals.py --repo <copy>
+  --output <out>/result.json --live --samples N --split train [--model M]`.
+  `--runs` maps to `--samples`. It needs `SUPABASE_URL` and
+  `SUPABASE_ANON_KEY` in the environment; without them no result is written
+  and the run is untrusted. Exit 0 and 1 are normal runs: `--live` also runs
+  a scan gate that fails while its images are absent.
+- Per-case score: the fixture's mean `fixture_score` from
+  `metrics.substitution_live.details`. Use `--threshold 0.8`, the runner's
+  per-fixture bar. A fixture with a gateway error in any sample is untrusted;
+  a result with no `substitution_live` block, or with every fixture errored,
+  is untrusted.
+- Cost: the runner's `cost.estimated_cost_usd`, a config-pricing estimate,
+  not billing. The adapter sets `case_run_cost_usd` (0.001), which the
+  dry-run estimate uses in place of the agent-run default of $0.10.
+- Graders have type `shelfie-fuzzy-match`. Vacuity probes report them
+  UNKNOWN: litmus does not reimplement the Shelfie grader.
+- `--replay-results` does not apply: the replay runner keys on `--json`.
+
+### 4.3 Next adapters (not built)
 
 - **promptfoo**: suite = `promptfooconfig.yaml`; subject = the prompt files it
   references; run = `promptfoo eval -c <copy> -o result.json`; per-case score =
