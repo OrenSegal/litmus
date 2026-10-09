@@ -240,8 +240,10 @@ Changes since run 2:
 - **The networked case no longer needs the network.** A baseline-only eval
   with the proxy instruction in place still failed: through Claude Code's
   sandbox proxy, every page from rfc-editor.org came back to cited as
-  `IncompleteRead`, while `curl` through the same proxy worked. That is a
-  cited bug, tracked separately. `catch-fabricated-citation` now gets a
+  `IncompleteRead`, while `curl` through the same proxy worked. That was a
+  cited bug: urllib sends `Connection: close`, and the sandbox proxy drops
+  the tail of the response when the server then closes. It is fixed in
+  cited's branch by asking for keep-alive in proxy mode. `catch-fabricated-citation` now gets a
   recorded cited cache of the five pages through a scaffold script, and the
   prompt says the machine is offline. The run grants no network at all.
 - **Both files the agent can follow are mutated**: `skills/cited/SKILL.md`
