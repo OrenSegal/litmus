@@ -202,7 +202,8 @@ class ClaudePluginEvalAdapter:
 
     def run(self, workdir: Path, suite: Suite, out_dir: Path, label: str) -> SuiteRun:
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_json = out_dir / "result.json"
+        # Absolute: the runner's cwd is out_dir, so a relative path would nest inside it.
+        out_json = out_dir.resolve() / "result.json"
         res = self.runner(self.command(workdir, out_json), out_dir, self.timeout, label)
         (out_dir / "stderr.txt").write_text(res.stderr or "", encoding="utf-8")
         # Exit 1 means "a case scored below --threshold": the expected outcome

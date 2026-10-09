@@ -41,7 +41,7 @@ class FakeRunner:
         self.calls.append(list(argv))
         self.labels.append(label)
         workdir = Path(argv[3])
-        out = Path(argv[argv.index("--json") + 1])
+        out = Path(cwd) / argv[argv.index("--json") + 1]  # relative paths resolve against cwd, as in a subprocess
         out.write_text(json.dumps(self.score_fn(workdir)), encoding="utf-8")
         return CommandResult(self.returncode, "", "")
 

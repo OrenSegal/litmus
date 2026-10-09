@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import unittest
+from pathlib import Path
 
 from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter
 from litmus.audit import audit_result
@@ -49,6 +50,18 @@ class TestEngine(unittest.TestCase):
             rep = mutate(ClaudePluginEvalAdapter(runner), DEMO, d, MutateOptions(max_mutants=3))
             self.assertEqual({m["verdict"] for m in rep["mutants"]}, {"INCONCLUSIVE"})
             self.assertEqual(len(runner.calls), 1)  # mutants are not run on a bad baseline
+
+    def test_relative_out_dir_still_finds_the_result(self):
+        # The default --out is relative (.litmus/<stamp>) and the runner's cwd is the run dir.
+        with TempDir() as d:
+            cwd = os.getcwd()
+            os.chdir(d)
+            try:
+                rep = mutate(ClaudePluginEvalAdapter(FakeRunner(demo_scores)), DEMO, Path("rel"),
+                             MutateOptions(max_mutants=1))
+            finally:
+                os.chdir(cwd)
+            self.assertTrue(rep["baseline"]["ok"], rep["baseline"]["error"])
 
     def test_budget_stops_launching_mutants(self):
         with TempDir() as d:
