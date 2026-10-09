@@ -57,7 +57,7 @@ counts in your favor. litmus runs on top of
 <a href="https://code.claude.com/docs/en/plugin-evals">claude plugin eval</a>
 and also finds graders that cannot fail at all, offline and for free.</p>
 
-<h2>First result: my own plugin</h2>
+<h2>First result: my own plugin (draft, rerun pending)</h2>
 <p class="muted">cited, a Claude Code plugin that checks every claim is on the
 page it cites. 3 eval cases, 8 mutants of its skill, 1 run each, 2026-10-09.</p>
 
@@ -82,7 +82,10 @@ page it cites. 3 eval cases, 8 mutants of its skill, 1 run each, 2026-10-09.</p>
 eval sandbox could not reach the cited site. The two green cases pass on the
 plugin's CLI and on the skill staying quiet, neither of which the prose
 controls. So the suite looked healthy and could not tell a working skill from
-an empty one. One run per case is noisy; treat this as a first reading.</p>
+an empty one. The run also had a setup leak: an installed copy of the cited
+CLI was on the eval's PATH, so mutants could still reach unmutated code.
+One run per case is noisy. Treat this as a first reading; a rerun with the
+sandbox fixed and the leak removed comes before any published number.</p>
 
 <p><a href="scores/cited-2026-10-09/report.html">Full report with every diff</a>
 &middot; <a href="scores/cited-2026-10-09/report.json">JSON</a></p>
