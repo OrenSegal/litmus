@@ -63,6 +63,21 @@ class TestEngine(unittest.TestCase):
             self.assertEqual(seen, [False] * 4)
             self.assertNotIn("INCONCLUSIVE", {m["verdict"] for m in rep["mutants"]})
 
+    def test_reported_diffs_come_from_the_snapshot(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+
+            def score(workdir: Path) -> dict:
+                for f in plugin.rglob("*.md"):  # the owner rewrites the live files mid-run
+                    f.write_text("LIVE\n")
+                return demo_scores(workdir)
+
+            rep = mutate(ClaudePluginEvalAdapter(FakeRunner(score)), plugin, d / "out", MutateOptions(max_mutants=3))
+            diffs = [m["diff"] for m in rep["mutants"]]
+            self.assertTrue(diffs and all(diffs))
+            self.assertFalse(any("LIVE" in x for x in diffs))
+
     def test_untrusted_baseline_makes_every_mutant_inconclusive(self):
         with TempDir() as d:
             runner = FakeRunner(lambda w: result_doc({"tests-only-diff": 1.0}, partial=True))

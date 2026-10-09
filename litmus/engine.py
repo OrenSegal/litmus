@@ -110,7 +110,13 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     snap_dir = Path(tempfile.mkdtemp(prefix="litmus-snapshot-"))
     try:
         snapshot = materialize(suite.root, snap_dir / suite.root.name, None, adapter.results_rel(suite))
-        results = _run_all(adapter, suite, snapshot, mutants, out_dir, opts, report, n_cases, originals, log)
+
+        # Diffs come from the snapshot too, so each one describes the mutant that ran.
+        def snap_originals(m: Mutant) -> str:
+            p = snapshot / m.file
+            return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+        results = _run_all(adapter, suite, snapshot, mutants, out_dir, opts, report, n_cases, snap_originals, log)
     finally:
         if not opts.keep_workdirs:
             shutil.rmtree(snap_dir, ignore_errors=True)
