@@ -145,9 +145,10 @@ deterministic types; another adapter maps its own assertion types onto
 - Reads `evals/` (or `--eval-dir`, or the manifest's `experimental.evals`):
   `prompt.md` frontmatter and body, `case.yaml` (PyYAML needed for graders
   listed in it), `graders/*.md`. Skips `results/` and `mocks/`.
-- Each run copies the plugin to a temp directory (skipping `.git`, caches and
-  `evals/results`, symlinking `node_modules` and virtualenvs), applies at most
-  one mutant, and runs:
+- At the start of `mutate`, litmus snapshots the plugin once (skipping `.git`,
+  caches and `evals/results`, symlinking `node_modules` and virtualenvs). Each
+  run copies that snapshot, not the live directory, so an edit made while the
+  run is in flight reaches no run. Each copy gets at most one mutant and runs:
 
   ```
   claude plugin eval <copy> --ablation none --runs N --threshold T \

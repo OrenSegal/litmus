@@ -7,6 +7,7 @@ import os
 import shutil
 import unittest
 from pathlib import Path
+from typing import List
 
 from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter
 from litmus.audit import audit_result
@@ -43,6 +44,24 @@ class TestEngine(unittest.TestCase):
             # the original plugin is never modified
             self.assertEqual((plugin / "skills/changelog/SKILL.md").read_text(),
                              (DEMO / "skills/changelog/SKILL.md").read_text())
+
+    def test_edits_during_the_run_do_not_reach_later_mutants(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+            readme = plugin / "notes.md"
+            readme.write_text("v1\n")
+            seen: List[bool] = []
+
+            def score(workdir: Path) -> dict:
+                seen.append((workdir / "notes.md").read_text().endswith("EDITED\n"))
+                readme.write_text(readme.read_text() + "EDITED\n")  # the owner edits mid-run
+                return demo_scores(workdir)
+
+            rep = mutate(ClaudePluginEvalAdapter(FakeRunner(score)), plugin, d / "out", MutateOptions(max_mutants=3))
+            self.assertEqual(len(seen), 4)
+            self.assertEqual(seen, [False] * 4)
+            self.assertNotIn("INCONCLUSIVE", {m["verdict"] for m in rep["mutants"]})
 
     def test_untrusted_baseline_makes_every_mutant_inconclusive(self):
         with TempDir() as d:
