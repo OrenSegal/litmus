@@ -8,6 +8,10 @@ retired, and what it became".
 
 ### Added
 
+- `shelfie-substitution` adapter: the first adapter for a prompt an app
+  sends to a model. It drives Shelfie's own eval runner, one case per
+  train-split fixture. Adapters may set `case_run_cost_usd` for the dry-run
+  estimate.
 - `litmus mutate`: seven deterministic operators (`delete-body`,
   `delete-instruction`, `invert-rule`, `swap-tool-names`, `truncate`,
   `wrong-fact`, `drop-description`), a baseline run and one

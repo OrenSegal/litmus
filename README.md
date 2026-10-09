@@ -340,8 +340,9 @@ old engine (assertions, judge, calibrate, matrix, index, capture) is removed;
   a pass. The real trace's init line and MCP mock calls are not modelled.
 - **Cost.** One full suite run per mutant. 20 mutants on a 3-case suite at 3
   runs per case is about 189 agent runs.
-- **One adapter.** Only `claude plugin eval` today. The promptfoo adapter is
-  specified, not built.
+- **Two adapters.** `claude plugin eval`, and `shelfie-substitution`, which
+  drives one app prompt eval through its own runner (SPEC section 4.2). The
+  promptfoo adapter is specified, not built.
 
 ## Development
 
