@@ -175,6 +175,62 @@ number. The run that came before it found and fixed a litmus bug: with the
 default relative `--out`, every result was written to the wrong directory and
 the baseline always read as untrusted.
 
+### Second paid run: cited, 2026-10-09 (still a draft)
+
+Before spending again, I fixed what I could find of the three confounds:
+
+- **PATH leak, fixed in litmus.** `claude plugin eval` passes PATH through
+  to the agent, and a Claude Code session puts every installed plugin's
+  `bin/` on it. The adapter now drops PATH entries under the plugins
+  directory and puts the mutated copy's `bin/` first (SPEC section 4.1). Run 1's
+  evidence showed an "Operation not permitted" from the first `cited` call;
+  no run 2 case shows one. I did not keep the eval traces, so that is a
+  weak signal, not proof.
+- **No network, root-caused.** The grants reached the eval: the run's
+  sandbox settings listed `www.rfc-editor.org` and `archive.org` as allowed.
+  The sandboxed shell has no direct route out and reaches allowed hosts only
+  through `HTTPS_PROXY`. cited ignores proxies unless you pass
+  `--proxy-from-env` (a deliberate SSRF default in its SECURITY.md), so every
+  fetch failed DNS. Not a litmus bug. In a cited branch I told the agent to
+  add that flag when `HTTPS_PROXY` is set, and tightened the evals: a free
+  regex grader for the skill's "N of M claims verified against source" line,
+  and an `invalid-claims-file` grader that needs a real `cited` call on a
+  `.json` file, scored with or without the plugin.
+
+```bash
+litmus mutate ../cited-evals --files 'skills/*' --max-mutants 8 --runs 1 --max-cost-usd 5 \
+  --allow-tools Bash Write "WebFetch(domain:www.rfc-editor.org)" "WebFetch(domain:archive.org)" \
+  "WebFetch(domain:*.archive.org)" --yes
+```
+
+**Mutation score 0% (0 killed / 8 run), 8 survived, 0 inconclusive.** The
+baseline was trusted with 2 of 3 cases green, the same two as run 1. Cost:
+$1.60 (estimate $2.70). `--runs 1` again, because the `--runs 2` dry run
+estimated $5.40 against a $5 cap. Full report:
+[docs/scores/cited-2026-10-09-r2](./docs/scores/cited-2026-10-09-r2/report.html).
+The survivors are the same seven operators as run 1, on the same lines.
+
+What run 2 found is better than a number: **both runs mutated a file the
+eval agent never read.** The agent invokes the `cited:check` command
+(`commands/check.md`), not the `cited` skill, and `--files 'skills/*'`
+mutated only `SKILL.md`. That is why emptying the skill body changed
+nothing, and why my proxy instruction, added to `SKILL.md`, never reached
+the agent: `catch-fabricated-citation` failed DNS on every source again and
+stayed red at baseline. The fix is now in `commands/check.md` too, but no
+paid run has measured it.
+
+One more thing to disclose: litmus copies the plugin from the live
+directory for each mutant, and I edited `commands/check.md` while the run
+was in flight, then reverted it. The one mutant whose eval reached the
+network (`delete-instruction` at line 6, `catch-fabricated-citation` 0.83)
+started within seconds of that edit, so its copy may have had it. That case
+was red at baseline, so it counts for nothing either way and the score
+stands, but the 0.83 in the report is not evidence about the mutant.
+
+Next run: point `--files` at `commands/*` as well as `skills/*` (litmus
+orders skills first under `--max-mutants`, so raise the cap or target
+commands directly), and do not touch the plugin while it runs.
+
 ## Why litmus was retired, and what it became
 
 litmus 0.2 (October 2026) was a red/green regression harness for skills and

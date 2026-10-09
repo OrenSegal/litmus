@@ -57,7 +57,42 @@ counts in your favor. litmus runs on top of
 <a href="https://code.claude.com/docs/en/plugin-evals">claude plugin eval</a>
 and also finds graders that cannot fail at all, offline and for free.</p>
 
-<h2>First result: my own plugin (draft, rerun pending)</h2>
+<h2>Latest result: my own plugin (draft)</h2>
+<p class="muted">cited, a Claude Code plugin that checks every claim is on the
+page it cites. Second run: 3 eval cases, 8 mutants of its skill, 1 run each,
+2026-10-09.</p>
+
+<div class="score">
+  <div class="big">0%</div>
+  <div class="what">mutation score: 0 of 8 mutants caught</div>
+  <div class="detail">2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.60</div>
+</div>
+
+<p>Same score, same eight survivors as the first run. This time I know why:
+<strong>both runs mutated a file the eval agent never read.</strong> The agent
+uses cited's <code>check</code> command, and litmus was told to mutate only the
+skill file. Emptying a file nobody reads changes nothing, so every mutant
+survived. So the survivors say less about the suite than they seem to: the
+mutants hit the wrong file, and a whole body deleted with nothing going red is
+what gave it away.</p>
+
+<p>Between runs I fixed two setup problems. litmus now keeps installed plugin
+CLIs off the eval's PATH. And the one case that tests the method was red
+because the eval sandbox only reaches the network through a proxy that cited
+ignores unless told otherwise. I put that instruction in the skill file, which
+is exactly the file the agent never read, so that case was red again. The fix
+is now in the command too, but no paid run has measured it yet.</p>
+
+<p>One more disclosure: I edited the command file while the run was going,
+then reverted it, and one mutant started within seconds of the edit. Its
+networked case was red at baseline, so it cannot count either way, but its
+score in the report is not evidence about that mutant. That and the
+unmeasured fix are why this is still a draft.</p>
+
+<p><a href="scores/cited-2026-10-09-r2/report.html">Full report with every diff</a>
+&middot; <a href="scores/cited-2026-10-09-r2/report.json">JSON</a></p>
+
+<h2>First run, for the record</h2>
 <p class="muted">cited, a Claude Code plugin that checks every claim is on the
 page it cites. 3 eval cases, 8 mutants of its skill, 1 run each, 2026-10-09.</p>
 
@@ -84,8 +119,8 @@ plugin's CLI and on the skill staying quiet, neither of which the prose
 controls. So the suite looked healthy and could not tell a working skill from
 an empty one. The run also had a setup leak: an installed copy of the cited
 CLI was on the eval's PATH, so mutants could still reach unmutated code.
-One run per case is noisy. Treat this as a first reading; a rerun with the
-sandbox fixed and the leak removed comes before any published number.</p>
+One run per case is noisy. Treat this as a first reading; the second run
+above is what that rerun found.</p>
 
 <p><a href="scores/cited-2026-10-09/report.html">Full report with every diff</a>
 &middot; <a href="scores/cited-2026-10-09/report.json">JSON</a></p>
