@@ -124,13 +124,56 @@ run; no model was called.
   runs. These evals do not measure the plugin. (`litmus audit` over the
   saved `aggregate-result.json` files.)
 
-Not yet done: a paid `litmus mutate` run. The command for cited, about $2.70
-at list price for 8 mutants:
+### First paid run: cited, 2026-10-09
 
 ```bash
 litmus mutate ../cited --files 'skills/*' --max-mutants 8 --runs 1 --max-cost-usd 5 \
   --allow-tools Bash Write "WebFetch(domain:www.rfc-editor.org)" "WebFetch(domain:archive.org)" --yes
 ```
+
+**Mutation score 0% (0 killed / 8 run), decided_score 0%.** All 8 mutants
+survived, none inconclusive. The baseline was trusted with 2 of 3 cases
+green. Cost: $1.66 for the baseline and 8 mutant runs (the dry run estimated
+$2.70). Full report: [docs/scores/cited-2026-10-09](./docs/scores/cited-2026-10-09/report.html).
+
+Survivors:
+
+- `delete-body`: the whole SKILL.md body emptied, frontmatter kept.
+- `delete-instruction` (line 6): the paragraph saying the skill is a mechanism, not a vertical.
+- `delete-instruction` (line 8): the pointer to `references/methodology.md`.
+- `invert-rule` (line 4): "cannot" to "can" in the failure mode it defends against.
+- `swap-tool-names`: Read and Bash swapped everywhere.
+- `truncate`: the second half of the body (18 of 35 lines) cut.
+- `wrong-fact` (line 6): "before" to "after" in that same paragraph.
+- `drop-description`: the description replaced with "General helper."
+
+Why nothing was killed:
+
+- **The one case that tests the skill's method was red at baseline.** In
+  `catch-fabricated-citation` the eval sandbox could not resolve
+  rfc-editor.org, so every claim came back broken and the judge failed it
+  (0.4). litmus only counts kills on cases that were green at baseline, so
+  this case counted for nothing. Some mutants did lower it further (0.4 to
+  0.2, with `ran-cited` failing), which a working network might have
+  turned into kills.
+- **The two green cases do not depend on the prose litmus mutates.**
+  `invalid-claims-file` passes whenever the agent runs the `cited` CLI and
+  reports its validation errors, and the CLI is code, not mutated. It
+  stayed green even with the skill body deleted, which matches the audit
+  finding above that it can stay green with the plugin removed.
+  `no-urls-no-check` passes whenever the skill does not fire, and breaking
+  the body does not make it fire.
+- **The installed cited plugin leaked in.** The `cited` binary from my own
+  installed copy (0.3.0) was on PATH inside the eval sandbox. The mutated
+  copy (0.3.1) was the only plugin the runner loaded, but the agent could still reach
+  the unmutated CLI. Uninstall or shadow the plugin before the next
+  dogfood run.
+
+`--runs 1` is noisy: one run per case per mutant, so a single flaky run can
+fake a kill or a survival. Treat this as a first reading, not a published
+number. The run that came before it found and fixed a litmus bug: with the
+default relative `--out`, every result was written to the wrong directory and
+the baseline always read as untrusted.
 
 ## Why litmus was retired, and what it became
 
