@@ -6,6 +6,8 @@ import json
 import os
 import shutil
 import unittest
+from pathlib import Path
+from typing import List
 
 from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter
 from litmus.audit import audit_result
@@ -43,12 +45,57 @@ class TestEngine(unittest.TestCase):
             self.assertEqual((plugin / "skills/changelog/SKILL.md").read_text(),
                              (DEMO / "skills/changelog/SKILL.md").read_text())
 
+    def test_edits_during_the_run_do_not_reach_later_mutants(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+            readme = plugin / "notes.md"
+            readme.write_text("v1\n")
+            seen: List[bool] = []
+
+            def score(workdir: Path) -> dict:
+                seen.append((workdir / "notes.md").read_text().endswith("EDITED\n"))
+                readme.write_text(readme.read_text() + "EDITED\n")  # the owner edits mid-run
+                return demo_scores(workdir)
+
+            rep = mutate(ClaudePluginEvalAdapter(FakeRunner(score)), plugin, d / "out", MutateOptions(max_mutants=3))
+            self.assertEqual(len(seen), 4)
+            self.assertEqual(seen, [False] * 4)
+            self.assertNotIn("INCONCLUSIVE", {m["verdict"] for m in rep["mutants"]})
+
+    def test_reported_diffs_come_from_the_snapshot(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+
+            def score(workdir: Path) -> dict:
+                for f in plugin.rglob("*.md"):  # the owner rewrites the live files mid-run
+                    f.write_text("LIVE\n")
+                return demo_scores(workdir)
+
+            rep = mutate(ClaudePluginEvalAdapter(FakeRunner(score)), plugin, d / "out", MutateOptions(max_mutants=3))
+            diffs = [m["diff"] for m in rep["mutants"]]
+            self.assertTrue(diffs and all(diffs))
+            self.assertFalse(any("LIVE" in x for x in diffs))
+
     def test_untrusted_baseline_makes_every_mutant_inconclusive(self):
         with TempDir() as d:
             runner = FakeRunner(lambda w: result_doc({"tests-only-diff": 1.0}, partial=True))
             rep = mutate(ClaudePluginEvalAdapter(runner), DEMO, d, MutateOptions(max_mutants=3))
             self.assertEqual({m["verdict"] for m in rep["mutants"]}, {"INCONCLUSIVE"})
             self.assertEqual(len(runner.calls), 1)  # mutants are not run on a bad baseline
+
+    def test_relative_out_dir_still_finds_the_result(self):
+        # The default --out is relative (.litmus/<stamp>) and the runner's cwd is the run dir.
+        with TempDir() as d:
+            cwd = os.getcwd()
+            os.chdir(d)
+            try:
+                rep = mutate(ClaudePluginEvalAdapter(FakeRunner(demo_scores)), DEMO, Path("rel"),
+                             MutateOptions(max_mutants=1))
+            finally:
+                os.chdir(cwd)
+            self.assertTrue(rep["baseline"]["ok"], rep["baseline"]["error"])
 
     def test_budget_stops_launching_mutants(self):
         with TempDir() as d:

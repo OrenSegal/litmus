@@ -1,0 +1,478 @@
+{
+  "schema": "litmus.report/1",
+  "litmus_version": "0.3.0",
+  "generated_at": "2026-10-09T17:16:40+00:00",
+  "adapter": "claude-plugin-eval",
+  "suite": {
+    "root": "cited-evals",
+    "eval_dir": "cited-evals/evals",
+    "cases": [
+      "catch-fabricated-citation",
+      "invalid-claims-file",
+      "no-urls-no-check"
+    ]
+  },
+  "threshold": 1.0,
+  "runs_per_case": 1,
+  "command": "claude plugin eval cited-evals --ablation none --runs 1 --threshold 1.0 --trust-plugin --no-publish --json <out>/result.json --output-dir <out>/eval-output --allow-tools Bash Write WebFetch(domain:www.rfc-editor.org) WebFetch(domain:archive.org) WebFetch(domain:*.archive.org)",
+  "mutant_source": "deterministic operators: delete-body, delete-instruction, invert-rule, swap-tool-names, truncate, wrong-fact, drop-description",
+  "estimate_usd": 2.7,
+  "vacuity": {
+    "probes": {
+      "silent": "",
+      "done": "Done.",
+      "refusal": "I can't help with that.",
+      "echo": "<the case prompt>"
+    },
+    "threshold": 1.0,
+    "graders": [
+      {
+        "case": "catch-fabricated-citation",
+        "grader": "disclosed",
+        "type": "regex",
+        "status": "DISCRIMINATES",
+        "reason": "",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "FAIL",
+          "done": "FAIL",
+          "refusal": "FAIL",
+          "echo": "FAIL"
+        }
+      },
+      {
+        "case": "catch-fabricated-citation",
+        "grader": "ran-cited",
+        "type": "tool_used",
+        "status": "DISCRIMINATES",
+        "reason": "",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "FAIL",
+          "done": "FAIL",
+          "refusal": "FAIL",
+          "echo": "FAIL"
+        }
+      },
+      {
+        "case": "catch-fabricated-citation",
+        "grader": "skill-fired",
+        "type": "tool_used",
+        "status": "DISCRIMINATES",
+        "reason": "",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "FAIL",
+          "done": "FAIL",
+          "refusal": "FAIL",
+          "echo": "FAIL"
+        }
+      },
+      {
+        "case": "catch-fabricated-citation",
+        "grader": "verdicts",
+        "type": "llm",
+        "status": "UNKNOWN",
+        "reason": "llm grader needs a judge model",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "UNKNOWN",
+          "done": "UNKNOWN",
+          "refusal": "UNKNOWN",
+          "echo": "UNKNOWN"
+        }
+      },
+      {
+        "case": "invalid-claims-file",
+        "grader": "ran-cited",
+        "type": "tool_used",
+        "status": "DISCRIMINATES",
+        "reason": "",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "FAIL",
+          "done": "FAIL",
+          "refusal": "FAIL",
+          "echo": "FAIL"
+        }
+      },
+      {
+        "case": "invalid-claims-file",
+        "grader": "report",
+        "type": "llm",
+        "status": "UNKNOWN",
+        "reason": "llm grader needs a judge model",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "UNKNOWN",
+          "done": "UNKNOWN",
+          "refusal": "UNKNOWN",
+          "echo": "UNKNOWN"
+        }
+      },
+      {
+        "case": "no-urls-no-check",
+        "grader": "rewrite",
+        "type": "llm",
+        "status": "UNKNOWN",
+        "reason": "llm grader needs a judge model",
+        "guard": false,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "UNKNOWN",
+          "done": "UNKNOWN",
+          "refusal": "UNKNOWN",
+          "echo": "UNKNOWN"
+        }
+      },
+      {
+        "case": "no-urls-no-check",
+        "grader": "skill-not-fired",
+        "type": "tool_used",
+        "status": "NULL_PASS",
+        "reason": "passes on probe(s): silent, done, refusal, echo",
+        "guard": true,
+        "weak_rubric": false,
+        "probes": {
+          "silent": "PASS",
+          "done": "PASS",
+          "refusal": "PASS",
+          "echo": "PASS"
+        }
+      }
+    ],
+    "cases": [
+      {
+        "case": "catch-fabricated-citation",
+        "mode": "ablation-none",
+        "status": "OK",
+        "probes": {
+          "silent": "RED",
+          "done": "RED",
+          "refusal": "RED",
+          "echo": "RED"
+        },
+        "scored": [
+          "disclosed",
+          "ran-cited",
+          "skill-fired",
+          "verdicts"
+        ]
+      },
+      {
+        "case": "catch-fabricated-citation",
+        "mode": "with-without",
+        "status": "OK",
+        "probes": {
+          "silent": "RED",
+          "done": "RED",
+          "refusal": "RED",
+          "echo": "RED"
+        },
+        "scored": [
+          "disclosed",
+          "verdicts"
+        ]
+      },
+      {
+        "case": "invalid-claims-file",
+        "mode": "ablation-none",
+        "status": "OK",
+        "probes": {
+          "silent": "RED",
+          "done": "RED",
+          "refusal": "RED",
+          "echo": "RED"
+        },
+        "scored": [
+          "ran-cited",
+          "report"
+        ]
+      },
+      {
+        "case": "invalid-claims-file",
+        "mode": "with-without",
+        "status": "OK",
+        "probes": {
+          "silent": "RED",
+          "done": "RED",
+          "refusal": "RED",
+          "echo": "RED"
+        },
+        "scored": [
+          "ran-cited",
+          "report"
+        ]
+      },
+      {
+        "case": "no-urls-no-check",
+        "mode": "ablation-none",
+        "status": "JUDGE_ONLY",
+        "probes": {
+          "silent": "UNKNOWN",
+          "done": "UNKNOWN",
+          "refusal": "UNKNOWN",
+          "echo": "UNKNOWN"
+        },
+        "scored": [
+          "rewrite",
+          "skill-not-fired"
+        ]
+      },
+      {
+        "case": "no-urls-no-check",
+        "mode": "with-without",
+        "status": "JUDGE_ONLY",
+        "probes": {
+          "silent": "UNKNOWN",
+          "done": "UNKNOWN",
+          "refusal": "UNKNOWN",
+          "echo": "UNKNOWN"
+        },
+        "scored": [
+          "rewrite",
+          "skill-not-fired"
+        ]
+      }
+    ],
+    "counts": {
+      "vacuous": 0,
+      "always_fails": 0,
+      "null_pass": 1,
+      "null_green_cases": 0,
+      "judge_only_cases": 1
+    }
+  },
+  "baseline": {
+    "ok": true,
+    "error": null,
+    "cost_usd": 0.1731398,
+    "cases": {
+      "catch-fabricated-citation": {
+        "score": 0.5,
+        "error": null
+      },
+      "invalid-claims-file": {
+        "score": 1.0,
+        "error": null
+      },
+      "no-urls-no-check": {
+        "score": 1.0,
+        "error": null
+      }
+    },
+    "green_cases": [
+      "invalid-claims-file",
+      "no-urls-no-check"
+    ]
+  },
+  "mutants": [
+    {
+      "id": "delete-body:skills/cited/SKILL.md:0:47cee39c",
+      "operator": "delete-body",
+      "file": "skills/cited/SKILL.md",
+      "description": "empty the body; keep only the frontmatter",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.1724437,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -5,35 +5,2 @@\n ---\n \n-# cited\n-\n-The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.\n-\n-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n-\n-Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n-\n-## When to use this\n-\n-Any time an agent is about to hand a human a document, list, or report where individual line items are attributed to a specific source (a URL) and the human is expected to trust the attribution without independently re-checking it themselves. Examples: a lead-gen report (\"this company posted this job\"), a research digest (\"this podcast guest said this number\"), a competitive battlecard (\"competitor X does Y, per their pricing page\"), a citation-heavy summary.\n-\n-Do **not** reach for this to fact-check claims that don't cite a specific URL — it verifies containment (is the claim on that page), not truth (is the page itself honest), and it has nothing to check without a `source_url`.\n-\n-## Workflow\n-\n-1. Produce your artifact's claims as a flat JSON array: `[{\"id\": \"...\", \"claim\": \"...\", \"source_url\": \"...\"}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead's name, a section heading — anything stable).\n-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool's PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code's sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.\n-3. Read the tier written back onto each entry:\n-   - `verified` — substantially quoted from the live (or archived) page. Ship it.\n-   - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company's name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.\n-   - `snippet_only` — the platform blocked automated fetching (Reddit, X, LinkedIn, etc.) and no archived copy exists. Your call whether the original discovery snippet is trustworthy enough to keep; disclose the unverified status if you do.\n-   - `unsupported` — the page loaded fine and the claim is **not on it**, or the claim's numbers or capitalized names (an amount, an investor, a product) are not on it. This is the fabrication signal. Drop the claim or find a claim the page actually supports.\n-   - `broken` — the source URL doesn't resolve, even via the Wayback Machine fallback. Drop it.\n-   - `unverified` — the claim was never checked: the page was a PDF or other binary, too thin to read (a JavaScript app, a consent wall), too large to read in full, or missing from an `--offline` cache. Check it by hand, or cite an HTML page that carries the same fact.\n-4. A non-zero exit means do not ship as is; `cited --help` lists what each code means. Wire that into a CI gate or a pre-ship check if your artifact pipeline has one. A run that fails only on `low_match` is waiting on human review, not proven wrong.\n-5. On the shipped artifact, disclose the result: \"N of M claims verified against source.\" That single line is what turns a report into something a skeptical reader can trust without redoing your research.\n-\n-## What this does and doesn't prove\n-\n-It proves a claim's text is (or isn't) present on the page it cites, checked independently of whatever model wrote the claim. It does **not** prove the page itself is honest, that a correctly-quoted line means what your artifact says it means, or that the page hasn't changed since — every checked entry is stamped `verified_at` so staleness is visible later, not hidden.\n-\n-See [references/methodology.md](references/methodology.md) for the full tiering rules, the Wayback Machine fallback behavior, and how bot-walled platforms (Reddit, X, LinkedIn) are handled without either failing the run or pretending they were checked.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "delete-instruction:skills/cited/SKILL.md:0:387d9f1b",
+      "operator": "delete-instruction",
+      "file": "skills/cited/SKILL.md",
+      "description": "delete line 6: This skill is a mechanism, not a vertical: it takes any list of `(cla...",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.8333333333333334,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.1763726,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -9,5 +9,4 @@\n The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.\n \n-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n \n Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "invert-rule:skills/cited/SKILL.md:0:a51a449b",
+      "operator": "invert-rule",
+      "file": "skills/cited/SKILL.md",
+      "description": "line 4: 'cannot' -> 'can' in: The core failure mode this defends against: an agent writes a plausib...",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.1735453,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -7,5 +7,5 @@\n # cited\n \n-The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.\n+The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading can catch self-invention.\n \n This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "swap-tool-names:skills/cited/SKILL.md:0:b39811f3",
+      "operator": "swap-tool-names",
+      "file": "skills/cited/SKILL.md",
+      "description": "swap tool names Read <-> Bash",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.1714856,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -11,5 +11,5 @@\n This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n \n-Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n+Bash [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n \n ## When to use this\n@@ -22,6 +22,6 @@\n \n 1. Produce your artifact's claims as a flat JSON array: `[{\"id\": \"...\", \"claim\": \"...\", \"source_url\": \"...\"}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead's name, a section heading — anything stable).\n-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool's PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code's sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.\n-3. Read the tier written back onto each entry:\n+2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Read tool's PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code's sandboxed Read, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.\n+3. Bash the tier written back onto each entry:\n    - `verified` — substantially quoted from the live (or archived) page. Ship it.\n    - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company's name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "truncate:skills/cited/SKILL.md:0:8031024e",
+      "operator": "truncate",
+      "file": "skills/cited/SKILL.md",
+      "description": "keep the first 17 of 35 body lines",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.173002,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -21,19 +21,2 @@\n ## Workflow\n \n-1. Produce your artifact's claims as a flat JSON array: `[{\"id\": \"...\", \"claim\": \"...\", \"source_url\": \"...\"}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead's name, a section heading — anything stable).\n-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool's PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code's sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.\n-3. Read the tier written back onto each entry:\n-   - `verified` — substantially quoted from the live (or archived) page. Ship it.\n-   - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company's name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.\n-   - `snippet_only` — the platform blocked automated fetching (Reddit, X, LinkedIn, etc.) and no archived copy exists. Your call whether the original discovery snippet is trustworthy enough to keep; disclose the unverified status if you do.\n-   - `unsupported` — the page loaded fine and the claim is **not on it**, or the claim's numbers or capitalized names (an amount, an investor, a product) are not on it. This is the fabrication signal. Drop the claim or find a claim the page actually supports.\n-   - `broken` — the source URL doesn't resolve, even via the Wayback Machine fallback. Drop it.\n-   - `unverified` — the claim was never checked: the page was a PDF or other binary, too thin to read (a JavaScript app, a consent wall), too large to read in full, or missing from an `--offline` cache. Check it by hand, or cite an HTML page that carries the same fact.\n-4. A non-zero exit means do not ship as is; `cited --help` lists what each code means. Wire that into a CI gate or a pre-ship check if your artifact pipeline has one. A run that fails only on `low_match` is waiting on human review, not proven wrong.\n-5. On the shipped artifact, disclose the result: \"N of M claims verified against source.\" That single line is what turns a report into something a skeptical reader can trust without redoing your research.\n-\n-## What this does and doesn't prove\n-\n-It proves a claim's text is (or isn't) present on the page it cites, checked independently of whatever model wrote the claim. It does **not** prove the page itself is honest, that a correctly-quoted line means what your artifact says it means, or that the page hasn't changed since — every checked entry is stamped `verified_at` so staleness is visible later, not hidden.\n-\n-See [references/methodology.md](references/methodology.md) for the full tiering rules, the Wayback Machine fallback behavior, and how bot-walled platforms (Reddit, X, LinkedIn) are handled without either failing the run or pretending they were checked.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "wrong-fact:skills/cited/SKILL.md:0:b187c833",
+      "operator": "wrong-fact",
+      "file": "skills/cited/SKILL.md",
+      "description": "line 6: 'before' -> 'after' in: This skill is a mechanism, not a vertical: it takes any list of `(cla...",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.18371180000000004,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -9,5 +9,5 @@\n The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.\n \n-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n+This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — after the artifact carrying those claims ships to a human.\n \n Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "drop-description:skills/cited/SKILL.md:0:c09e3832",
+      "operator": "drop-description",
+      "file": "skills/cited/SKILL.md",
+      "description": "replace the frontmatter description with 'General helper.' (tests triggering)",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.1889465,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -1,5 +1,5 @@\n ---\n name: cited\n-description: Before an agent ships any artifact that cites sources (a report, a lead list, a research summary, a changelog claim), re-fetch every cited source and confirm the claim is actually there — not just self-graded by the model that wrote it. Use when an agent's output includes claims attributed to a URL and those claims need to be trustworthy before a human sees them.\n+description: General helper.\n license: MIT\n ---\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    },
+    {
+      "id": "delete-instruction:skills/cited/SKILL.md:1:5dbd49a5",
+      "operator": "delete-instruction",
+      "file": "skills/cited/SKILL.md",
+      "description": "delete line 8: Read [references/methodology.md](references/methodology.md) before wi...",
+      "verdict": "SURVIVED",
+      "reason": "every baseline-green case stayed green",
+      "killed_by": [],
+      "case_scores": {
+        "catch-fabricated-citation": 0.5,
+        "invalid-claims-file": 1.0,
+        "no-urls-no-check": 1.0
+      },
+      "cost_usd": 0.18372670000000002,
+      "diff": "--- a/skills/cited/SKILL.md\n+++ b/skills/cited/SKILL.md\n@@ -11,5 +11,4 @@\n This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.\n \n-Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.\n \n ## When to use this\n",
+      "generator": {
+        "kind": "deterministic"
+      }
+    }
+  ],
+  "score": {
+    "mutation_score": 0.0,
+    "killed": 0,
+    "survived": 8,
+    "inconclusive": 0,
+    "not_run": 0,
+    "total_run": 8,
+    "decided_score": 0.0,
+    "by_operator": {
+      "delete-body": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      },
+      "delete-instruction": {
+        "KILLED": 0,
+        "SURVIVED": 2,
+        "INCONCLUSIVE": 0
+      },
+      "invert-rule": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      },
+      "swap-tool-names": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      },
+      "truncate": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      },
+      "wrong-fact": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      },
+      "drop-description": {
+        "KILLED": 0,
+        "SURVIVED": 1,
+        "INCONCLUSIVE": 0
+      }
+    }
+  },
+  "dry_run": false,
+  "spent_usd": 1.5964,
+  "exit_code": 1
+}

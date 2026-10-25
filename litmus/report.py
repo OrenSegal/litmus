@@ -112,8 +112,23 @@ def html_report(r: Dict[str, Any]) -> str:
         f"<div class='tile'><b>{s['inconclusive']}</b><span>inconclusive (not killed)</span></div>",
         f"<div class='tile'><b>{vac['counts']['vacuous'] + vac['counts']['null_green_cases']}</b>"
         "<span>vacuous graders + null-green cases</span></div>",
-        "</div>",
     ]
+    b = r.get("baseline") or {}
+    if b:
+        greens = b.get("green_cases") or []
+        p.append(f"<div class='tile'><b>{len(greens)} of {len(r['suite']['cases'])}</b>"
+                 "<span>cases green at baseline (only these can kill)</span></div>")
+    p.append("</div>")
+    if b:
+        p.append("<h2>Baseline (unmutated copy)</h2><div class='wrap'><table>"
+                 "<tr><th>case</th><th>score</th><th>counts toward kills</th></tr>")
+        if not b.get("ok"):
+            p.append(f"<tr><td colspan='3'>{_v('UNTRUSTED')} {e(str(b.get('error')))}</td></tr>")
+        for name, c in (b.get("cases") or {}).items():
+            green = name in (b.get("green_cases") or [])
+            p.append(f"<tr><td>{e(name)}</td><td>{e(str(c.get('score')))}{' ' + e(str(c['error'])) if c.get('error') else ''}"
+                     f"</td><td>{'yes' if green else 'no, not green at baseline'}</td></tr>")
+        p.append("</table></div>")
     if r["dry_run"]:
         p.append(f"<p class='muted'>Dry run: nothing was executed. Estimated cost ${r['estimate_usd']:.2f}.</p>")
     p.append("<h2>Graders and cases on do-nothing runs</h2><div class='wrap'><table>"

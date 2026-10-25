@@ -9,21 +9,27 @@ Every run, the baseline and every mutant, uses the same flags. `--ablation none`
 is required: the docs say it changes absolute scores, so a two-arm baseline is
 not comparable with one-arm mutant runs, and the no-plugin arm adds nothing a
 mutant needs.
+
+Every run also gets a PATH with no installed plugin's bin/ on it and the
+plugin copy's own bin/ first. `claude plugin eval` passes PATH through to the
+agent, and a Claude Code session puts each installed plugin's bin/ on it, so
+without this a mutant's eval could call the owner's installed, unmutated CLI.
 """
 
 from __future__ import annotations
 
 import fnmatch
 import json
+import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from ..frontmatter import FrontmatterError, parse_yaml, split
 from ..models import Case, CaseRun, Grader, Suite, SuiteRun
 from .base import CommandRunner, subprocess_runner
 
-__all__ = ["ClaudePluginEvalAdapter", "SuiteError", "parse_result"]
+__all__ = ["ClaudePluginEvalAdapter", "SuiteError", "eval_env", "parse_result"]
 
 _GRADER_KEYS = {"type", "weight", "arm", "name"}
 _INFRA_ERROR = re.compile(r"rate.?limit|usage.?limit|auth|credential|overloaded|\b429\b|\b5\d\d\b|quota", re.I)
@@ -43,6 +49,25 @@ def _plugin_manifest(root: Path) -> Dict[str, Any]:
             except json.JSONDecodeError as exc:
                 raise SuiteError(f"{p}: {exc}") from exc
     return {}
+
+
+def eval_env(workdir: Path, base: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
+    """`base` (default: our environment) with every PATH entry under a Claude
+    Code plugins directory removed and `workdir/bin` put first when it exists."""
+    env = dict(os.environ if base is None else base)
+    config = Path(env.get("CLAUDE_CONFIG_DIR") or Path(env.get("HOME") or Path.home()) / ".claude")
+    plugins = os.path.realpath(config / "plugins")
+
+    def installed(entry: str) -> bool:
+        real = os.path.realpath(os.path.expanduser(entry))
+        return real == plugins or real.startswith(plugins + os.sep) or "/.claude/plugins/" in entry + "/"
+
+    keep = [e for e in env.get("PATH", "").split(os.pathsep) if e and not installed(e)]
+    own = workdir.resolve() / "bin"
+    if own.is_dir():
+        keep = [str(own)] + [e for e in keep if os.path.realpath(e) != str(own)]
+    env["PATH"] = os.pathsep.join(keep)
+    return env
 
 
 def _grader_from(name: str, meta: Dict[str, Any], body: str, source: Optional[Path]) -> Grader:
@@ -202,8 +227,9 @@ class ClaudePluginEvalAdapter:
 
     def run(self, workdir: Path, suite: Suite, out_dir: Path, label: str) -> SuiteRun:
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_json = out_dir / "result.json"
-        res = self.runner(self.command(workdir, out_json), out_dir, self.timeout, label)
+        # Absolute: the runner's cwd is out_dir, so a relative path would nest inside it.
+        out_json = out_dir.resolve() / "result.json"
+        res = self.runner(self.command(workdir, out_json), out_dir, self.timeout, label, env=eval_env(workdir))
         (out_dir / "stderr.txt").write_text(res.stderr or "", encoding="utf-8")
         # Exit 1 means "a case scored below --threshold": the expected outcome
         # for a killed mutant. Only a missing or partial result is untrusted.

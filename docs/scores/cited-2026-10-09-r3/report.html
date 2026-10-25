@@ -1,0 +1,214 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>litmus mutation report</title><style>
+:root{--bg:#fbfbfa;--fg:#1b1b1a;--muted:#6a6a66;--line:#e4e3df;--card:#fff;
+--kill:#1a7f37;--surv:#cf222e;--inc:#9a6700;--nr:#8b8b86}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;
+--line:#2a2a28;--card:#181817;--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f}}
+:root[data-theme="dark"]{--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;--line:#2a2a28;--card:#181817;
+--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);
+font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:960px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.5rem;margin:0}h2{font-size:1.1rem;margin:2rem 0 .5rem}
+.sub{color:var(--muted);margin:.25rem 0 1.25rem;overflow-wrap:anywhere}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.tile b{display:block;font-size:1.6rem}.tile span{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:6px 8px;
+border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
+.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:#fff;white-space:nowrap}
+.KILLED{background:var(--kill)}.SURVIVED,.VACUOUS,.NULL_GREEN,.ALWAYS_FAILS{background:var(--surv)}
+.INCONCLUSIVE,.NULL_PASS,.JUDGE_ONLY{background:var(--inc)}.NOT_RUN,.OK,.DISCRIMINATES,.UNKNOWN{background:var(--nr)}
+code,pre{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;margin:.4rem 0}
+details summary{cursor:pointer}.wrap{overflow-x:auto}.muted{color:var(--muted)}
+</style></head><body><main><h1>Can your eval fail?</h1><div class='sub'>cited-evals &middot; adapter claude-plugin-eval &middot; litmus 0.3.0 &middot; 2026-10-09T17:36:14+00:00</div><div class='tiles'><div class='tile'><b>36%</b><span>mutation score</span></div><div class='tile'><b>5</b><span>killed</span></div><div class='tile'><b>9</b><span>survived</span></div><div class='tile'><b>0</b><span>inconclusive (not killed)</span></div><div class='tile'><b>0</b><span>vacuous graders + null-green cases</span></div><div class='tile'><b>3 of 3</b><span>cases green at baseline (only these can kill)</span></div></div><h2>Baseline (unmutated copy)</h2><div class='wrap'><table><tr><th>case</th><th>score</th><th>counts toward kills</th></tr><tr><td>catch-fabricated-citation</td><td>1.0</td><td>yes</td></tr><tr><td>invalid-claims-file</td><td>1.0</td><td>yes</td></tr><tr><td>no-urls-no-check</td><td>1.0</td><td>yes</td></tr></table></div><h2>Graders and cases on do-nothing runs</h2><div class='wrap'><table><tr><th>status</th><th>case / grader</th><th>type</th><th>why</th></tr><tr><td><span class="v DISCRIMINATES">DISCRIMINATES</span></td><td>catch-fabricated-citation / disclosed</td><td>regex</td><td> </td></tr><tr><td><span class="v DISCRIMINATES">DISCRIMINATES</span></td><td>catch-fabricated-citation / ran-cited</td><td>tool_used</td><td> </td></tr><tr><td><span class="v DISCRIMINATES">DISCRIMINATES</span></td><td>catch-fabricated-citation / skill-fired</td><td>tool_used</td><td> </td></tr><tr><td><span class="v UNKNOWN">UNKNOWN</span></td><td>catch-fabricated-citation / verdicts</td><td>llm</td><td> llm grader needs a judge model</td></tr><tr><td><span class="v DISCRIMINATES">DISCRIMINATES</span></td><td>invalid-claims-file / ran-cited</td><td>tool_used</td><td> </td></tr><tr><td><span class="v UNKNOWN">UNKNOWN</span></td><td>invalid-claims-file / report</td><td>llm</td><td> llm grader needs a judge model</td></tr><tr><td><span class="v UNKNOWN">UNKNOWN</span></td><td>no-urls-no-check / rewrite</td><td>llm</td><td> llm grader needs a judge model</td></tr><tr><td><span class="v NULL_PASS">NULL_PASS</span></td><td>no-urls-no-check / skill-not-fired</td><td>tool_used</td><td>NULL_PASS (guard) passes on probe(s): silent, done, refusal, echo</td></tr><tr><td><span class="v OK">OK</span></td><td>catch-fabricated-citation</td><td>case [ablation-none]</td><td>silent: RED, done: RED, refusal: RED, echo: RED</td></tr><tr><td><span class="v OK">OK</span></td><td>catch-fabricated-citation</td><td>case [with-without]</td><td>silent: RED, done: RED, refusal: RED, echo: RED</td></tr><tr><td><span class="v OK">OK</span></td><td>invalid-claims-file</td><td>case [ablation-none]</td><td>silent: RED, done: RED, refusal: RED, echo: RED</td></tr><tr><td><span class="v OK">OK</span></td><td>invalid-claims-file</td><td>case [with-without]</td><td>silent: RED, done: RED, refusal: RED, echo: RED</td></tr><tr><td><span class="v JUDGE_ONLY">JUDGE_ONLY</span></td><td>no-urls-no-check</td><td>case [ablation-none]</td><td>silent: UNKNOWN, done: UNKNOWN, refusal: UNKNOWN, echo: UNKNOWN</td></tr><tr><td><span class="v JUDGE_ONLY">JUDGE_ONLY</span></td><td>no-urls-no-check</td><td>case [with-without]</td><td>silent: UNKNOWN, done: UNKNOWN, refusal: UNKNOWN, echo: UNKNOWN</td></tr></table></div><h2>Mutants</h2><div class='wrap'><table><tr><th>verdict</th><th>mutant</th><th>detail</th></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>delete-body:skills/cited/SKILL.md:0:47cee39c</code><br>empty the body; keep only the frontmatter</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -5,35 +5,2 @@
+ ---
+ 
+-# cited
+-
+-The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.
+-
+-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.
+-
+-Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.
+-
+-## When to use this
+-
+-Any time an agent is about to hand a human a document, list, or report where individual line items are attributed to a specific source (a URL) and the human is expected to trust the attribution without independently re-checking it themselves. Examples: a lead-gen report (&quot;this company posted this job&quot;), a research digest (&quot;this podcast guest said this number&quot;), a competitive battlecard (&quot;competitor X does Y, per their pricing page&quot;), a citation-heavy summary.
+-
+-Do **not** reach for this to fact-check claims that don&#x27;t cite a specific URL — it verifies containment (is the claim on that page), not truth (is the page itself honest), and it has nothing to check without a `source_url`.
+-
+-## Workflow
+-
+-1. Produce your artifact&#x27;s claims as a flat JSON array: `[{&quot;id&quot;: &quot;...&quot;, &quot;claim&quot;: &quot;...&quot;, &quot;source_url&quot;: &quot;...&quot;}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead&#x27;s name, a section heading — anything stable).
+-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool&#x27;s PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.
+-3. Read the tier written back onto each entry:
+-   - `verified` — substantially quoted from the live (or archived) page. Ship it.
+-   - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company&#x27;s name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.
+-   - `snippet_only` — the platform blocked automated fetching (Reddit, X, LinkedIn, etc.) and no archived copy exists. Your call whether the original discovery snippet is trustworthy enough to keep; disclose the unverified status if you do.
+-   - `unsupported` — the page loaded fine and the claim is **not on it**, or the claim&#x27;s numbers or capitalized names (an amount, an investor, a product) are not on it. This is the fabrication signal. Drop the claim or find a claim the page actually supports.
+-   - `broken` — the source URL doesn&#x27;t resolve, even via the Wayback Machine fallback. Drop it.
+-   - `unverified` — the claim was never checked: the page was a PDF or other binary, too thin to read (a JavaScript app, a consent wall), too large to read in full, or missing from an `--offline` cache. Check it by hand, or cite an HTML page that carries the same fact.
+-4. A non-zero exit means do not ship as is; `cited --help` lists what each code means. Wire that into a CI gate or a pre-ship check if your artifact pipeline has one. A run that fails only on `low_match` is waiting on human review, not proven wrong.
+-5. On the shipped artifact, disclose the result: &quot;N of M claims verified against source.&quot; That single line is what turns a report into something a skeptical reader can trust without redoing your research.
+-
+-## What this does and doesn&#x27;t prove
+-
+-It proves a claim&#x27;s text is (or isn&#x27;t) present on the page it cites, checked independently of whatever model wrote the claim. It does **not** prove the page itself is honest, that a correctly-quoted line means what your artifact says it means, or that the page hasn&#x27;t changed since — every checked entry is stamped `verified_at` so staleness is visible later, not hidden.
+-
+-See [references/methodology.md](references/methodology.md) for the full tiering rules, the Wayback Machine fallback behavior, and how bot-walled platforms (Reddit, X, LinkedIn) are handled without either failing the run or pretending they were checked.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>delete-instruction:skills/cited/SKILL.md:0:387d9f1b</code><br>delete line 6: This skill is a mechanism, not a vertical: it takes any list of `(cla...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -9,5 +9,4 @@
+ The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.
+ 
+-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.
+ 
+ Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>invert-rule:skills/cited/SKILL.md:0:a51a449b</code><br>line 4: &#x27;cannot&#x27; -&gt; &#x27;can&#x27; in: The core failure mode this defends against: an agent writes a plausib...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -7,5 +7,5 @@
+ # cited
+ 
+-The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.
++The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading can catch self-invention.
+ 
+ This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.
+</pre></details></td></tr><tr><td><span class="v KILLED">KILLED</span></td><td><code>swap-tool-names:skills/cited/SKILL.md:0:b39811f3</code><br>swap tool names Read &lt;-&gt; Bash</td><td>case(s) dropped below threshold: catch-fabricated-citation<br><span class=muted>catch-fabricated-citation: 0.5, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -11,5 +11,5 @@
+ This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.
+ 
+-Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.
++Bash [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.
+ 
+ ## When to use this
+@@ -22,6 +22,6 @@
+ 
+ 1. Produce your artifact&#x27;s claims as a flat JSON array: `[{&quot;id&quot;: &quot;...&quot;, &quot;claim&quot;: &quot;...&quot;, &quot;source_url&quot;: &quot;...&quot;}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead&#x27;s name, a section heading — anything stable).
+-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool&#x27;s PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.
+-3. Read the tier written back onto each entry:
++2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Read tool&#x27;s PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Read, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.
++3. Bash the tier written back onto each entry:
+    - `verified` — substantially quoted from the live (or archived) page. Ship it.
+    - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company&#x27;s name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.
+</pre></details></td></tr><tr><td><span class="v KILLED">KILLED</span></td><td><code>truncate:skills/cited/SKILL.md:0:8031024e</code><br>keep the first 17 of 35 body lines</td><td>case(s) dropped below threshold: catch-fabricated-citation<br><span class=muted>catch-fabricated-citation: 0.8333333333333334, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -21,19 +21,2 @@
+ ## Workflow
+ 
+-1. Produce your artifact&#x27;s claims as a flat JSON array: `[{&quot;id&quot;: &quot;...&quot;, &quot;claim&quot;: &quot;...&quot;, &quot;source_url&quot;: &quot;...&quot;}, ...]`. `id` is whatever your artifact uses to key this claim back to its full record (a lead&#x27;s name, a section heading — anything stable).
+-2. Run `cited claims.json --annotate-out verified.json`. The `cited` command is on the Bash tool&#x27;s PATH while the plugin is enabled; without the plugin, run `python3 scripts/verify_claims.py` from this skill directory with the same arguments. Add `--json` for a machine-readable report on stdout, and `cited --help` lists every flag. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. Do not read those `broken` results as dead links.
+-3. Read the tier written back onto each entry:
+-   - `verified` — substantially quoted from the live (or archived) page. Ship it.
+-   - `low_match` — the claim shares vocabulary with the page but is not quoted from it. This is not evidence the claim is on the page: a made-up claim about a real company also shares the company&#x27;s name with its site. Do not ship it as is. A human must check the claim against the page, or you tighten the claim to wording the page actually contains and re-run.
+-   - `snippet_only` — the platform blocked automated fetching (Reddit, X, LinkedIn, etc.) and no archived copy exists. Your call whether the original discovery snippet is trustworthy enough to keep; disclose the unverified status if you do.
+-   - `unsupported` — the page loaded fine and the claim is **not on it**, or the claim&#x27;s numbers or capitalized names (an amount, an investor, a product) are not on it. This is the fabrication signal. Drop the claim or find a claim the page actually supports.
+-   - `broken` — the source URL doesn&#x27;t resolve, even via the Wayback Machine fallback. Drop it.
+-   - `unverified` — the claim was never checked: the page was a PDF or other binary, too thin to read (a JavaScript app, a consent wall), too large to read in full, or missing from an `--offline` cache. Check it by hand, or cite an HTML page that carries the same fact.
+-4. A non-zero exit means do not ship as is; `cited --help` lists what each code means. Wire that into a CI gate or a pre-ship check if your artifact pipeline has one. A run that fails only on `low_match` is waiting on human review, not proven wrong.
+-5. On the shipped artifact, disclose the result: &quot;N of M claims verified against source.&quot; That single line is what turns a report into something a skeptical reader can trust without redoing your research.
+-
+-## What this does and doesn&#x27;t prove
+-
+-It proves a claim&#x27;s text is (or isn&#x27;t) present on the page it cites, checked independently of whatever model wrote the claim. It does **not** prove the page itself is honest, that a correctly-quoted line means what your artifact says it means, or that the page hasn&#x27;t changed since — every checked entry is stamped `verified_at` so staleness is visible later, not hidden.
+-
+-See [references/methodology.md](references/methodology.md) for the full tiering rules, the Wayback Machine fallback behavior, and how bot-walled platforms (Reddit, X, LinkedIn) are handled without either failing the run or pretending they were checked.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>wrong-fact:skills/cited/SKILL.md:0:b187c833</code><br>line 6: &#x27;before&#x27; -&gt; &#x27;after&#x27; in: This skill is a mechanism, not a vertical: it takes any list of `(cla...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -9,5 +9,5 @@
+ The core failure mode this defends against: an agent writes a plausible-sounding claim, attributes it to a source it read (or half-read, or invented from a search snippet), and grades its own confidence — using the same model that might have made the claim up. Self-grading cannot catch self-invention.
+ 
+-This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — before the artifact carrying those claims ships to a human.
++This skill is a mechanism, not a vertical: it takes any list of `(claim, source_url)` pairs and re-fetches each source independently, checking whether the claim is actually contained in the page — after the artifact carrying those claims ships to a human.
+ 
+ Read [references/methodology.md](references/methodology.md) before wiring this into your own artifact type — it explains the tiering logic and where this mechanism is honest about its limits.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>drop-description:skills/cited/SKILL.md:0:c09e3832</code><br>replace the frontmatter description with &#x27;General helper.&#x27; (tests triggering)</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/skills/cited/SKILL.md
++++ b/skills/cited/SKILL.md
+@@ -1,5 +1,5 @@
+ ---
+ name: cited
+-description: Before an agent ships any artifact that cites sources (a report, a lead list, a research summary, a changelog claim), re-fetch every cited source and confirm the claim is actually there — not just self-graded by the model that wrote it. Use when an agent&#x27;s output includes claims attributed to a URL and those claims need to be trustworthy before a human sees them.
++description: General helper.
+ license: MIT
+ ---
+</pre></details></td></tr><tr><td><span class="v KILLED">KILLED</span></td><td><code>delete-body:commands/check.md:0:35824420</code><br>empty the body; keep only the frontmatter</td><td>case(s) dropped below threshold: catch-fabricated-citation, invalid-claims-file<br><span class=muted>catch-fabricated-citation: 0.16666666666666666, invalid-claims-file: 0.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -5,16 +5,2 @@
+ ---
+ 
+-Verify cited claims with the `cited` tool before anything ships. Arguments: `$ARGUMENTS`
+-
+-1. Work out the input.
+-   - If the arguments name a `.json` file that is an array of `{id, claim, source_url}` objects, use it as is.
+-   - If they name another file (a report, a README, a lead list), or are empty and you have just written an artifact that cites URLs, extract every claim that is attributed to a URL into a JSON array of `{&quot;id&quot;: &quot;&lt;stable key&gt;&quot;, &quot;claim&quot;: &quot;&lt;the exact sentence as written&gt;&quot;, &quot;source_url&quot;: &quot;&lt;the URL&gt;&quot;}`. Keep the claim text exactly as it appears in the artifact; do not reword it to match the page. Write the array to `cited-claims.json` next to the artifact (ask before writing if you are unsure where).
+-   - If there are no URL-attributed claims, say so and stop.
+-2. Run `cited &lt;claims file&gt; --json` plus any flags from the arguments (`--strict`, `--no-wayback`, `--cache DIR`, `--offline`). If the shell says `cited` is not found (the plugin&#x27;s `bin/` is not on PATH, as in `claude plugin eval` runs), run `&quot;${CLAUDE_PLUGIN_ROOT}/bin/cited&quot;` with the same arguments instead; do not search the filesystem for it. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. This is how cited reaches the network there, not a weaker flag.
+-3. Report from the JSON, not from memory:
+-   - one line: &quot;N of M claims verified against source&quot;, then the counts per tier;
+-   - a table of every claim that is not `verified`: id, tier, and the `note` (which names the missing numbers or names);
+-   - what `summary.exit_code` means (`cited --help` lists the codes). An invalid claims file prints no JSON: show the problems cited listed on stderr.
+-4. For each `unsupported` or `broken` claim, propose a fix: drop it, find a source that says it, or tighten the wording to what the page says. For `low_match`, say a human must check it against the page. Do not edit the artifact unless asked.
+-
+-Do not mark a claim verified yourself, and do not re-run with weaker flags (`--allow-private-addresses`, `--allow-host`) to make something pass.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>delete-instruction:commands/check.md:0:0e1e7856</code><br>delete line 2: Verify cited claims with the `cited` tool before anything ships. Argu...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -5,5 +5,4 @@
+ ---
+ 
+-Verify cited claims with the `cited` tool before anything ships. Arguments: `$ARGUMENTS`
+ 
+ 1. Work out the input.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>invert-rule:commands/check.md:0:c8006cf6</code><br>line 6: &#x27;do not&#x27; -&gt; &#x27;do&#x27; in: - If they name another file (a report, a README, a lead list), or are...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -9,5 +9,5 @@
+ 1. Work out the input.
+    - If the arguments name a `.json` file that is an array of `{id, claim, source_url}` objects, use it as is.
+-   - If they name another file (a report, a README, a lead list), or are empty and you have just written an artifact that cites URLs, extract every claim that is attributed to a URL into a JSON array of `{&quot;id&quot;: &quot;&lt;stable key&gt;&quot;, &quot;claim&quot;: &quot;&lt;the exact sentence as written&gt;&quot;, &quot;source_url&quot;: &quot;&lt;the URL&gt;&quot;}`. Keep the claim text exactly as it appears in the artifact; do not reword it to match the page. Write the array to `cited-claims.json` next to the artifact (ask before writing if you are unsure where).
++   - If they name another file (a report, a README, a lead list), or are empty and you have just written an artifact that cites URLs, extract every claim that is attributed to a URL into a JSON array of `{&quot;id&quot;: &quot;&lt;stable key&gt;&quot;, &quot;claim&quot;: &quot;&lt;the exact sentence as written&gt;&quot;, &quot;source_url&quot;: &quot;&lt;the URL&gt;&quot;}`. Keep the claim text exactly as it appears in the artifact; do reword it to match the page. Write the array to `cited-claims.json` next to the artifact (ask before writing if you are unsure where).
+    - If there are no URL-attributed claims, say so and stop.
+ 2. Run `cited &lt;claims file&gt; --json` plus any flags from the arguments (`--strict`, `--no-wayback`, `--cache DIR`, `--offline`). If the shell says `cited` is not found (the plugin&#x27;s `bin/` is not on PATH, as in `claude plugin eval` runs), run `&quot;${CLAUDE_PLUGIN_ROOT}/bin/cited&quot;` with the same arguments instead; do not search the filesystem for it. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. This is how cited reaches the network there, not a weaker flag.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>swap-tool-names:commands/check.md:0:c4312d97</code><br>swap tool names Write &lt;-&gt; Bash</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -9,7 +9,7 @@
+ 1. Work out the input.
+    - If the arguments name a `.json` file that is an array of `{id, claim, source_url}` objects, use it as is.
+-   - If they name another file (a report, a README, a lead list), or are empty and you have just written an artifact that cites URLs, extract every claim that is attributed to a URL into a JSON array of `{&quot;id&quot;: &quot;&lt;stable key&gt;&quot;, &quot;claim&quot;: &quot;&lt;the exact sentence as written&gt;&quot;, &quot;source_url&quot;: &quot;&lt;the URL&gt;&quot;}`. Keep the claim text exactly as it appears in the artifact; do not reword it to match the page. Write the array to `cited-claims.json` next to the artifact (ask before writing if you are unsure where).
++   - If they name another file (a report, a README, a lead list), or are empty and you have just written an artifact that cites URLs, extract every claim that is attributed to a URL into a JSON array of `{&quot;id&quot;: &quot;&lt;stable key&gt;&quot;, &quot;claim&quot;: &quot;&lt;the exact sentence as written&gt;&quot;, &quot;source_url&quot;: &quot;&lt;the URL&gt;&quot;}`. Keep the claim text exactly as it appears in the artifact; do not reword it to match the page. Bash the array to `cited-claims.json` next to the artifact (ask before writing if you are unsure where).
+    - If there are no URL-attributed claims, say so and stop.
+-2. Run `cited &lt;claims file&gt; --json` plus any flags from the arguments (`--strict`, `--no-wayback`, `--cache DIR`, `--offline`). If the shell says `cited` is not found (the plugin&#x27;s `bin/` is not on PATH, as in `claude plugin eval` runs), run `&quot;${CLAUDE_PLUGIN_ROOT}/bin/cited&quot;` with the same arguments instead; do not search the filesystem for it. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. This is how cited reaches the network there, not a weaker flag.
++2. Run `cited &lt;claims file&gt; --json` plus any flags from the arguments (`--strict`, `--no-wayback`, `--cache DIR`, `--offline`). If the shell says `cited` is not found (the plugin&#x27;s `bin/` is not on PATH, as in `claude plugin eval` runs), run `&quot;${CLAUDE_PLUGIN_ROOT}/bin/cited&quot;` with the same arguments instead; do not search the filesystem for it. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Write, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. This is how cited reaches the network there, not a weaker flag.
+ 3. Report from the JSON, not from memory:
+    - one line: &quot;N of M claims verified against source&quot;, then the counts per tier;
+</pre></details></td></tr><tr><td><span class="v KILLED">KILLED</span></td><td><code>truncate:commands/check.md:0:7623ef4b</code><br>keep the first 8 of 16 body lines</td><td>case(s) dropped below threshold: catch-fabricated-citation, invalid-claims-file<br><span class=muted>catch-fabricated-citation: 0.8333333333333334, invalid-claims-file: 0.6666666666666666, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -12,9 +12,2 @@
+    - If there are no URL-attributed claims, say so and stop.
+ 2. Run `cited &lt;claims file&gt; --json` plus any flags from the arguments (`--strict`, `--no-wayback`, `--cache DIR`, `--offline`). If the shell says `cited` is not found (the plugin&#x27;s `bin/` is not on PATH, as in `claude plugin eval` runs), run `&quot;${CLAUDE_PLUGIN_ROOT}/bin/cited&quot;` with the same arguments instead; do not search the filesystem for it. If `HTTPS_PROXY` is set, as it is in Claude Code&#x27;s sandboxed Bash, add `--proxy-from-env`: the sandbox has no direct route out, so without it every source fails to resolve and comes back `broken`. This is how cited reaches the network there, not a weaker flag.
+-3. Report from the JSON, not from memory:
+-   - one line: &quot;N of M claims verified against source&quot;, then the counts per tier;
+-   - a table of every claim that is not `verified`: id, tier, and the `note` (which names the missing numbers or names);
+-   - what `summary.exit_code` means (`cited --help` lists the codes). An invalid claims file prints no JSON: show the problems cited listed on stderr.
+-4. For each `unsupported` or `broken` claim, propose a fix: drop it, find a source that says it, or tighten the wording to what the page says. For `low_match`, say a human must check it against the page. Do not edit the artifact unless asked.
+-
+-Do not mark a claim verified yourself, and do not re-run with weaker flags (`--allow-private-addresses`, `--allow-host`) to make something pass.
+</pre></details></td></tr><tr><td><span class="v SURVIVED">SURVIVED</span></td><td><code>wrong-fact:commands/check.md:0:f2e67aed</code><br>line 2: &#x27;before&#x27; -&gt; &#x27;after&#x27; in: Verify cited claims with the `cited` tool before anything ships. Argu...</td><td>every baseline-green case stayed green<br><span class=muted>catch-fabricated-citation: 1.0, invalid-claims-file: 1.0, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -5,5 +5,5 @@
+ ---
+ 
+-Verify cited claims with the `cited` tool before anything ships. Arguments: `$ARGUMENTS`
++Verify cited claims with the `cited` tool after anything ships. Arguments: `$ARGUMENTS`
+ 
+ 1. Work out the input.
+</pre></details></td></tr><tr><td><span class="v KILLED">KILLED</span></td><td><code>drop-description:commands/check.md:0:b08b86ba</code><br>replace the frontmatter description with &#x27;General helper.&#x27; (tests triggering)</td><td>case(s) dropped below threshold: catch-fabricated-citation, invalid-claims-file<br><span class=muted>catch-fabricated-citation: 0.8333333333333334, invalid-claims-file: 0.3333333333333333, no-urls-no-check: 1.0</span><details><summary>diff</summary><pre>--- a/commands/check.md
++++ b/commands/check.md
+@@ -1,4 +1,4 @@
+ ---
+-description: Check that every claim in a claims file (or in the artifact you just wrote) is on the page it cites
++description: General helper.
+ argument-hint: &quot;[claims.json | artifact file] [--strict] [--no-wayback]&quot;
+ allowed-tools: Bash(cited:*), Read, Glob
+</pre></details></td></tr></table></div><h2>How this was run</h2><pre>claude plugin eval cited-evals --ablation none --runs 1 --threshold 1.0 --trust-plugin --no-publish --json &lt;out&gt;/result.json --output-dir &lt;out&gt;/eval-output --scaffold --allow-tools Bash Write</pre><p class='muted'>Mutants from deterministic operators: delete-body, delete-instruction, invert-rule, swap-tool-names, truncate, wrong-fact, drop-description. INCONCLUSIVE never counts as killed. Probe runs are synthetic and judge graders are not called on them.</p></main></body></html>
