@@ -1,5 +1,8 @@
 # litmus
 
+[![ci](https://github.com/OrenSegal/litmus/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/litmus/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 **Can your eval fail?** Mutation testing for LLM and agent eval suites.
 
 An eval suite that never goes red tells you nothing. litmus breaks the thing
@@ -20,6 +23,20 @@ is open so promptfoo and other runners can follow (see [SPEC.md](./SPEC.md)).
 > The rule: a mutant only counts as killed when a trusted run shows it.
 > INCONCLUSIVE (a crashed, partial or rate-limited run, a baseline that was
 > never green, a stale mutant) never counts as killed.
+
+## Results
+
+What litmus found when I pointed it at real suites (details further down):
+
+| Suite | Check | Result |
+|---|---|---|
+| sous, cited, scoped (saved two-arm runs) | `litmus audit` | 2 of 6 cases stayed green with the plugin removed |
+| cited, runs 1 and 2 | `litmus mutate` | 0 of 8 mutants killed: the networked case was red at baseline, and the mutated file was one the agent never read |
+| cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%): the suite catches damage to the command, not to the skill |
+| [rootcause](https://github.com/OrenSegal/rootcause) investigator brief | mutation run | 0 of 12 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
+
+All mutation runs used `--runs 1`, so a single flaky run can fake a kill or a
+survival. Treat them as first readings.
 
 ## What it finds
 
@@ -293,35 +310,10 @@ does the work.
 a kill or a survival. The two kills that rest on one regex grader
 (`disclosed`) are the most exposed to that.
 
-## Why litmus was retired, and what it became
+## History
 
-litmus 0.2 (October 2026) was a red/green regression harness for skills and
-prompts. It graded captured agent runs against deterministic assertions and an
-anchored LLM judge, under one rule: a green only ever comes from a check that
-could have failed.
-
-It broke its own rule. On 2026-10-02 I retired it from the sous marketplace
-with this note: "its deterministic assertions can pass when they could never
-fail (four assertions that cannot fail gave 1/1 green), and `claude plugin
-eval` covers the rest." The judge path was guarded: an unanchored judge was
-INCONCLUSIVE, never PASS. The deterministic path was not. An absence
-assertion such as `must_not: {field: "$.segments[*].opener"}` passes on any
-output that has no such field, including an empty one. Re-running the old
-example suites today against an empty run, 3 of their 10 assertions still
-pass, all `must_not`. I can't reconstruct which four assertions the original
-note counted, so treat that number as the note's, not as re-verified.
-
-Two lessons came out of it:
-
-1. A suite's greens are only as good as its ability to go red, and nobody
-   measures that. Not my old tool, not the runners.
-2. Running and grading is a solved problem now that `claude plugin eval`
-   exists. Competing with the platform's own runner is a losing position.
-
-So litmus is now the missing check on top of the runner: it asks whether the
-suite can fail, and measures how much of the prompt it actually covers. The
-old engine (assertions, judge, calibrate, matrix, index, capture) is removed;
-`git log` has it.
+litmus 0.2 was a regression harness that broke its own rule. Why it was
+retired and what it became: [docs/HISTORY.md](./docs/HISTORY.md).
 
 ## Limits
 
@@ -341,7 +333,9 @@ old engine (assertions, judge, calibrate, matrix, index, capture) is removed;
 - **Cost.** One full suite run per mutant. 20 mutants on a 3-case suite at 3
   runs per case is about 189 agent runs.
 - **Two adapters.** `claude plugin eval`, and `shelfie-substitution`, which
-  drives one app prompt eval through its own runner (SPEC section 4.2). The
+  drives one app prompt eval through that app's own runner (SPEC section
+  4.2). The adapter is in this repo; Shelfie and its runner are private, so
+  outside its tests it only runs against my checkout. The
   promptfoo adapter is specified, not built.
 
 ## Development
