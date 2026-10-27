@@ -3,8 +3,8 @@
 ## 0.3.0
 
 litmus is now a mutation tester for eval suites ("Can your eval fail?"). The
-0.2 regression engine is removed. See [docs/HISTORY.md](docs/HISTORY.md) for
-why it was retired and what it became.
+0.2 regression engine is removed. See [docs/SCOPE.md](docs/SCOPE.md) for
+what litmus covers.
 
 ### Added
 

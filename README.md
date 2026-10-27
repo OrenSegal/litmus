@@ -125,8 +125,7 @@ Run on 2026-10-06 against the eval suites of four of my Claude Code plugins
 (sous, cited, scoped, deuce): 9 cases, 18 graders. Only the free checks were
 run; no model was called.
 
-- **No proven-vacuous graders, no null-green cases.** The obvious failure
-  that retired litmus 0.2 is not present in these suites.
+- **No proven-vacuous graders, no null-green cases.**
 - **Under the runner's default two-arm scoring, all 9 cases can only go red
   through an LLM judge.** The deterministic graders that count are either
   excluded in two-arm mode (`tool_used: Skill`, `arm: with-only`) or absence
@@ -310,10 +309,9 @@ does the work.
 a kill or a survival. The two kills that rest on one regex grader
 (`disclosed`) are the most exposed to that.
 
-## History
+## Scope
 
-litmus 0.2 was a regression harness that broke its own rule. Why it was
-retired and what it became: [docs/HISTORY.md](./docs/HISTORY.md).
+What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
 
 ## Limits
 
