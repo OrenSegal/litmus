@@ -18,7 +18,8 @@ you spend anything on runs.
 litmus runs on top of [`claude plugin eval`](https://code.claude.com/docs/en/plugin-evals),
 Claude Code's plugin eval runner. It does not replace it: the runner runs and
 grades, litmus asks whether those grades mean anything. The adapter interface
-is open so promptfoo and other runners can follow (see [SPEC.md](./SPEC.md)).
+is open; a promptfoo adapter is specified in SPEC section 4.3 and not built
+(see [SPEC.md](./SPEC.md)).
 
 > The rule: a mutant only counts as killed when a trusted run shows it.
 > INCONCLUSIVE (a crashed, partial or rate-limited run, a baseline that was
@@ -35,8 +36,9 @@ What litmus found when I pointed it at real suites (details further down):
 | cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%): the suite catches damage to the command, not to the skill |
 | [rootcause](https://github.com/OrenSegal/rootcause) investigator brief | mutation run | 0 of 12 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
 
-All mutation runs used `--runs 1`, so a single flaky run can fake a kill or a
-survival. Treat them as first readings.
+All mutation runs used `--runs 1`, below the `--runs 3` that Limits asks for
+in published numbers, so a single flaky run can fake a kill or a survival.
+Treat them as first readings, not settled scores.
 
 ## What it finds
 
@@ -319,7 +321,8 @@ What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
   redundant sentence changes nothing the model does. Read the list; do not
   chase 100%.
 - **Noise.** With `--runs 1` a flaky case can fake a kill. Use `--runs 3` for
-  numbers you publish; the report shows `decided_score` (killed over killed
+  numbers you publish. Every result in this README was run at `--runs 1`, so
+  none of them meets that bar yet: read them as first readings. The report shows `decided_score` (killed over killed
   plus survived) next to the strict score.
 - **Prose only.** Hooks, scripts and MCP servers are not mutated. A plugin
   whose behavior lives in a hook (the sous guard) gets little from prose
@@ -334,7 +337,7 @@ What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
   drives one app prompt eval through that app's own runner (SPEC section
   4.2). The adapter is in this repo; Shelfie and its runner are private, so
   outside its tests it only runs against my checkout. The
-  promptfoo adapter is specified, not built.
+  promptfoo adapter is specified in SPEC section 4.3 and not built.
 
 ## Development
 
