@@ -192,7 +192,7 @@ number. The run that came before it found and fixed a litmus bug: with the
 default relative `--out`, every result was written to the wrong directory and
 the baseline always read as untrusted.
 
-### Second paid run: cited, 2026-10-09 (still a draft)
+### Second paid run: cited, 2026-10-09
 
 Before spending again, I fixed what I could find of the three confounds:
 
@@ -208,7 +208,7 @@ Before spending again, I fixed what I could find of the three confounds:
   The sandboxed shell has no direct route out and reaches allowed hosts only
   through `HTTPS_PROXY`. cited ignores proxies unless you pass
   `--proxy-from-env` (a deliberate SSRF default in its SECURITY.md), so every
-  fetch failed DNS. Not a litmus bug. In a cited branch I told the agent to
+  fetch failed DNS. Not a litmus bug. I changed cited to tell the agent to
   add that flag when `HTTPS_PROXY` is set, and tightened the evals: a free
   regex grader for the skill's "N of M claims verified against source" line,
   and an `invalid-claims-file` grader that needs a real `cited` call on a
@@ -259,8 +259,8 @@ Changes since run 2:
   sandbox proxy, every page from rfc-editor.org came back to cited as
   `IncompleteRead`, while `curl` through the same proxy worked. That was a
   cited bug: urllib sends `Connection: close`, and the sandbox proxy drops
-  the tail of the response when the server then closes. It is fixed in
-  cited's branch by asking for keep-alive in proxy mode. `catch-fabricated-citation` now gets a
+  the tail of the response when the server then closes. cited now asks
+  for keep-alive in proxy mode. `catch-fabricated-citation` now gets a
   recorded cited cache of the five pages through a scaffold script, and the
   prompt says the machine is offline. The run grants no network at all.
 - **Both files the agent can follow are mutated**: `skills/cited/SKILL.md`
