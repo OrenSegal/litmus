@@ -7,7 +7,8 @@ freeze new mechanisms until a real run logs a real outcome.**
 ## Position
 
 "Can your eval fail?" Mutation testing for LLM and agent eval suites. It sits
-on top of eval runners (`claude plugin eval` first, promptfoo next) instead of
+on top of eval runners (`claude plugin eval` today; a promptfoo adapter is
+specified in SPEC section 4.3 and not built) instead of
 competing with them. Runners answer "did it pass?"; litmus answers "would it
 have failed if the prompt were broken?"
 
@@ -36,7 +37,7 @@ have failed if the prompt were broken?"
    history and a PR check. Team tier priced against eval platforms
    ($100 to $250 per month; comps: Braintrust $249, Langfuse $199, LangSmith
    $39 per seat).
-3. More adapters (promptfoo first) and an LLM mutant generator with recorded,
+3. More adapters (promptfoo is specified in SPEC section 4.3, not built) and an LLM mutant generator with recorded,
    replayable output.
 
 ## First act

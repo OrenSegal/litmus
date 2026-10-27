@@ -204,7 +204,7 @@ Code. It drives Shelfie's own runner and its fixed ground truth; no judge.
   UNKNOWN: litmus does not reimplement the Shelfie grader.
 - `--replay-results` does not apply: the replay runner keys on `--json`.
 
-### 4.3 Next adapters (not built)
+### 4.3 Other adapters (specified, not built)
 
 - **promptfoo**: suite = `promptfooconfig.yaml`; subject = the prompt files it
   references; run = `promptfoo eval -c <copy> -o result.json`; per-case score =
