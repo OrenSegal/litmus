@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Oren Segal" }]
 keywords = ["claude-code", "skills", "llm", "eval", "mutation-testing", "prompt-engineering", "ci"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
