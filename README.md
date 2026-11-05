@@ -331,6 +331,17 @@ What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
   deterministic grader types from the published docs and translates
   JavaScript regexes to Python; anything it cannot translate is UNKNOWN, never
   a pass. The real trace's init line and MCP mock calls are not modelled.
+- **Judges are not calibrated.** A mutant counts as killed when the suite's
+  own grader, often an LLM judge, scores it red. litmus does not check that
+  judge against human labels, so a kill can be judge noise and a survivor can
+  be a judge that is too lenient. `litmus vacuity` flags judge-only cases and
+  rubrics that never say what fails, which is as far as it goes. The 0.2
+  `calibrate` command measured judge agreement with human labels; it was removed
+  with the 0.2 engine and is in git history at v0.2.0. Rebuilding it needs a
+  labelled set and paid judge runs, so it is not done.
+- **Dogfood counts are not reproducible from this repo.** The "9 cases, 18
+  graders" audit ran on four plugin suites that are not committed here; only
+  the cited reports under `docs/scores/` are.
 - **Cost.** One full suite run per mutant. 20 mutants on a 3-case suite at 3
   runs per case is about 189 agent runs.
 - **Two adapters.** `claude plugin eval`, and `shelfie-substitution`, which
