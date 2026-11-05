@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="64" viewBox="0 0 520 64" role="img" aria-label="cited: mutation score 36% (5 killed, 9 survived, 0 inconclusive)"><title>cited: mutation score 36% (5 killed, 9 survived, 0 inconclusive)</title>
+<rect width="520" height="64" rx="6" fill="#fff"/>
+<text x="10" y="20" font-family="sans-serif" font-size="13" fill="#222">cited: mutation score 36% (5 killed, 9 survived, 0 inconclusive)</text>
+<rect x="10.0" y="30" width="178.6" height="18" fill="#2e7d32"/>
+<text x="99.3" y="43" font-family="sans-serif" font-size="11" fill="#fff" text-anchor="middle">5</text>
+<rect x="188.6" y="30" width="321.4" height="18" fill="#c62828"/>
+<text x="349.3" y="43" font-family="sans-serif" font-size="11" fill="#fff" text-anchor="middle">9</text>
+</svg>
