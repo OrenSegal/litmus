@@ -5,6 +5,12 @@
 
 **Can your eval fail?** Mutation testing for LLM and agent eval suites.
 
+**Live page and full reports: [orensegal.github.io/litmus](https://orensegal.github.io/litmus/)**
+
+[![cited run 3: 5 of 14 mutants killed, 9 survived, 0 inconclusive](docs/score.svg)](https://orensegal.github.io/litmus/scores/cited-2026-10-09-r3/report.html)
+
+<sub>cited run 3 from [docs/scores/cited-2026-10-09-r3/report.json](docs/scores/cited-2026-10-09-r3/report.json), `--runs 1`. Regenerate: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`</sub>
+
 An eval suite that never goes red tells you nothing. litmus breaks the thing
 under test on purpose (deletes an instruction from a skill, inverts a rule,
 swaps two tool names, truncates the prompt, plants a wrong number) and runs
