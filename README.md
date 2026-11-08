@@ -9,7 +9,7 @@
 
 [![cited run 3: mutation score 36%, 5 of 14 mutants killed, 9 survived, 0 inconclusive; 1 run per case, variance not measured](docs/score.svg)](https://orensegal.github.io/litmus/scores/cited-2026-10-09-r3/report.html)
 
-<sub>cited run 3 from [docs/scores/cited-2026-10-09-r3/report.json](docs/scores/cited-2026-10-09-r3/report.json), `--runs 1`. Regenerate: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`</sub>
+<sub>cited run 3 from [docs/scores/cited-2026-10-09-r3/report.json](docs/scores/cited-2026-10-09-r3/report.json), `--runs 1`. Regenerate: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`; the social preview `docs/og.png` is drawn from `docs/og.svg`.</sub>
 
 An eval suite that never goes red tells you nothing. litmus breaks the thing
 under test on purpose (deletes an instruction from a skill, inverts a rule,
