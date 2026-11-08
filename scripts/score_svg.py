@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import sys
 
-W, H, BAR_Y, BAR_H = 520, 64, 30, 18
+W, H, BAR_Y, BAR_H = 520, 82, 30, 18
 COLORS = {"killed": "#2e7d32", "survived": "#c62828", "inconclusive": "#9e9e9e"}
 
 
@@ -18,15 +18,17 @@ def render(report: dict) -> str:
     total = sum(counts.values())
     assert total == s["total_run"], (counts, s["total_run"])
     suite = report["suite"]["root"].removesuffix("-evals")
-    title = (
+    headline = (
         f"{suite}: mutation score {s['mutation_score']:.0%} "
         f"({counts['killed']} killed, {counts['survived']} survived, {counts['inconclusive']} inconclusive)"
     )
+    n_note = f"n={total} mutants, {report['runs_per_case']} run(s) per case; run-to-run variance not measured"
+    title = f"{headline}; {n_note}"
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" '
         f'aria-label="{title}"><title>{title}</title>',
         f'<rect width="{W}" height="{H}" rx="6" fill="#fff"/>',
-        f'<text x="10" y="20" font-family="sans-serif" font-size="13" fill="#222">{title}</text>',
+        f'<text x="10" y="20" font-family="sans-serif" font-size="13" fill="#222">{headline}</text>',
     ]
     x, span = 10.0, W - 20
     for k, color in COLORS.items():
@@ -38,6 +40,7 @@ def render(report: dict) -> str:
                 f'fill="#fff" text-anchor="middle">{counts[k]}</text>'
             )
         x += w
+    parts.append(f'<text x="10" y="{BAR_Y + BAR_H + 16}" font-family="sans-serif" font-size="11" fill="#555">{n_note}</text>')
     parts.append("</svg>\n")
     return "\n".join(parts)
 

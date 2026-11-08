@@ -66,11 +66,11 @@ def text_audit(a: Dict[str, Any]) -> List[str]:
 
 _CSS = """
 :root{--bg:#fbfbfa;--fg:#1b1b1a;--muted:#6a6a66;--line:#e4e3df;--card:#fff;
---kill:#1a7f37;--surv:#cf222e;--inc:#9a6700;--nr:#8b8b86}
+--kill:#1a7f37;--surv:#cf222e;--inc:#9a6700;--nr:#6e6e69;--on:#fff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;
---line:#2a2a28;--card:#181817;--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f}}
+--line:#2a2a28;--card:#181817;--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#8b8a84;--on:#111110}}
 :root[data-theme="dark"]{--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;--line:#2a2a28;--card:#181817;
---kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f}
+--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#8b8a84;--on:#111110}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);
 font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:960px;margin:0 auto;padding:24px 16px}
@@ -81,7 +81,7 @@ h1{font-size:1.5rem;margin:0}h2{font-size:1.1rem;margin:2rem 0 .5rem}
 .tile b{display:block;font-size:1.6rem}.tile span{color:var(--muted);font-size:13px}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:6px 8px;
 border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
-.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:#fff;white-space:nowrap}
+.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:var(--on);white-space:nowrap}
 .KILLED{background:var(--kill)}.SURVIVED,.VACUOUS,.NULL_GREEN,.ALWAYS_FAILS{background:var(--surv)}
 .INCONCLUSIVE,.NULL_PASS,.JUDGE_ONLY{background:var(--inc)}.NOT_RUN,.OK,.DISCRIMINATES,.UNKNOWN{background:var(--nr)}
 code,pre{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -106,7 +106,8 @@ def html_report(r: Dict[str, Any]) -> str:
         f"<div class='sub'>{e(r['suite']['root'])} &middot; adapter {e(r['adapter'])} &middot; "
         f"litmus {e(r['litmus_version'])} &middot; {e(r['generated_at'])}</div>",
         "<div class='tiles'>",
-        f"<div class='tile'><b>{_pct(s['mutation_score'])}</b><span>mutation score</span></div>",
+        f"<div class='tile'><b>{_pct(s['mutation_score'])}</b><span>mutation score: {s['killed']} of {s['total_run']} mutants, "
+        f"{r['runs_per_case']} run{'s' if r['runs_per_case'] != 1 else ''} per case</span></div>",
         f"<div class='tile'><b>{s['killed']}</b><span>killed</span></div>",
         f"<div class='tile'><b>{s['survived']}</b><span>survived</span></div>",
         f"<div class='tile'><b>{s['inconclusive']}</b><span>inconclusive (not killed)</span></div>",
