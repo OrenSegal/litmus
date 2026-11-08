@@ -113,8 +113,9 @@ judge. The README states this under "Limits".
 that gets published, because with one run a single flaky case can fake a kill
 or a survival.
 
-**Decision.** All three paid runs on cited, and the rootcause run, used
-`--runs 1`, and the README says so next to every result.
+**Decision.** All three paid runs on cited, and both rootcause runs
+(2026-10-15 and 2026-11-06), used `--runs 1`, and the README says so next to
+every result.
 
 **Alternatives considered and why rejected.** `--runs 2` for cited run 2:
 rejected because the dry run estimated $5.40 against a $5 cap. `--runs 3`:
