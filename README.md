@@ -31,6 +31,24 @@ is open; a promptfoo adapter is specified in SPEC section 4.3 and not built
 > INCONCLUSIVE (a crashed, partial or rate-limited run, a baseline that was
 > never green, a stale mutant) never counts as killed.
 
+## Components
+
+```mermaid
+flowchart LR
+  CLI["cli.py: mutate, vacuity, audit"] --> ENG["engine.py"]
+  ENG --> MUT["operators.py + mutants.py"]
+  ENG --> VAC["vacuity.py + graders.py (offline)"]
+  ENG --> SC["scoring.py"]
+  ENG --> AD["adapters/base.py: Adapter, injected CommandRunner"]
+  AD --> CPE["adapters/claude_plugin_eval.py"]
+  CPE -->|"one run per mutant, temp copy"| RUN["claude plugin eval (external)"]
+  CLI --> AU["audit.py: saved aggregate-result.json"]
+  CLI --> REP["report.py: text, JSON, HTML"]
+```
+
+Why it is built this way, with the alternatives that were rejected:
+[docs/decisions.md](docs/decisions.md).
+
 ## Results
 
 What litmus found when I pointed it at real suites (details further down):
