@@ -7,7 +7,7 @@
 
 **Live page and full reports: [orensegal.github.io/litmus](https://orensegal.github.io/litmus/)**
 
-[![cited run 3: 5 of 14 mutants killed, 9 survived, 0 inconclusive](docs/score.svg)](https://orensegal.github.io/litmus/scores/cited-2026-10-09-r3/report.html)
+[![cited run 3: mutation score 36%, 5 of 14 mutants killed, 9 survived, 0 inconclusive; 1 run per case, variance not measured](docs/score.svg)](https://orensegal.github.io/litmus/scores/cited-2026-10-09-r3/report.html)
 
 <sub>cited run 3 from [docs/scores/cited-2026-10-09-r3/report.json](docs/scores/cited-2026-10-09-r3/report.json), `--runs 1`. Regenerate: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`</sub>
 
@@ -55,14 +55,18 @@ What litmus found when I pointed it at real suites (details further down):
 
 | Suite | Check | Result |
 |---|---|---|
-| sous, cited, scoped (saved two-arm runs) | `litmus audit` | 2 of 6 cases stayed green with the plugin removed |
+| sous, cited, scoped (saved two-arm runs, 3 runs per arm) | `litmus audit` | 2 of 6 non-negative cases stayed green with the plugin removed ([audit output](docs/scores/audit-2026-10-02/audit.txt)) |
 | cited, runs 1 and 2 | `litmus mutate` | 0 of 8 mutants killed: the networked case was red at baseline, and the mutated file was one the agent never read |
-| cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%): the suite catches damage to the command, not to the skill |
-| [rootcause](https://github.com/OrenSegal/rootcause) investigator brief | mutation run | 0 of 12 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
+| cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%, n=14, 1 run per case): the suite catches damage to the command, not to the skill |
+| [rootcause](https://github.com/OrenSegal/rootcause) investigator brief, 25 scenarios, 1 run each | mutation run | 0 of 12 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
+| rootcause brief, rule suite (8 single-rule scenarios) | mutation run | 2 of 14 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-11-06-rule-suite.md)) |
 
 All mutation runs used `--runs 1`, below the `--runs 3` that Limits asks for
 in published numbers, so a single flaky run can fake a kill or a survival.
-Treat them as first readings, not settled scores.
+Treat them as first readings, not settled scores. No mutant has been run
+twice under the same suite and setup, so the run-to-run flip rate is not
+measured; the few mutant ids shared between cited runs had the suite or
+litmus changed in between, so their differences are not variance.
 
 ## What it finds
 
@@ -365,7 +369,10 @@ What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
   labelled set and paid judge runs, so it is not done.
 - **Dogfood counts are not reproducible from this repo.** The "9 cases, 18
   graders" audit ran on four plugin suites that are not committed here; only
-  the cited reports under `docs/scores/` are.
+  the cited reports under `docs/scores/` are. For the "2 of 6" plugin-removal
+  finding, the `litmus audit` output is committed
+  ([docs/scores/audit-2026-10-02/audit.txt](docs/scores/audit-2026-10-02/audit.txt)),
+  but its input result files are not, because they hold agent transcripts.
 - **Cost.** One full suite run per mutant. 20 mutants on a 3-case suite at 3
   runs per case is about 189 agent runs.
 - **Two adapters.** `claude plugin eval`, and `shelfie-substitution`, which

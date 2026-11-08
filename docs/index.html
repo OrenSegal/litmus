@@ -5,13 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Can your eval fail?</title>
 <meta name="description" content="litmus: mutation testing for LLM and agent eval suites. Break the prompt on purpose and see whether your evals notice.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='5' y='0' width='6' height='8' fill='%231a7f37'/%3E%3Crect x='5' y='8' width='6' height='8' fill='%23cf222e'/%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://orensegal.github.io/litmus/">
+<meta property="og:title" content="Can your eval fail? litmus">
+<meta property="og:description" content="Mutation testing for LLM and agent eval suites. cited, run 3: 5 of 14 mutants caught, 1 run per case.">
+<meta property="og:image" content="https://orensegal.github.io/litmus/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{--bg:#fbfbfa;--fg:#1b1b1a;--muted:#6a6a66;--line:#e4e3df;--card:#fff;
---kill:#1a7f37;--surv:#cf222e;--inc:#9a6700;--nr:#8b8b86;--link:#0b5cad}
+--kill:#1a7f37;--surv:#cf222e;--inc:#9a6700;--nr:#6e6e69;--link:#0b5cad;--on:#fff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;
---line:#2a2a28;--card:#181817;--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f;--link:#6cb6ff}}
+--line:#2a2a28;--card:#181817;--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#8b8a84;--link:#6cb6ff;--on:#111110}}
 :root[data-theme="dark"]{--bg:#111110;--fg:#ecebe8;--muted:#9c9b96;--line:#2a2a28;--card:#181817;
---kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#76756f;--link:#6cb6ff}
+--kill:#3fb950;--surv:#f85149;--inc:#d29922;--nr:#8b8a84;--link:#6cb6ff;--on:#111110}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:680px;margin:0 auto;padding:56px 16px 72px}
@@ -30,7 +39,7 @@ border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0 
 .score .detail{color:var(--muted);font-size:15px}
 ul.surv{list-style:none;padding:0;margin:0 0 18px;border-top:1px solid var(--line)}
 ul.surv li{padding:8px 0;border-bottom:1px solid var(--line);font-size:15px;display:flex;gap:12px}
-ul.surv li span.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:#fff;
+ul.surv li span.v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:var(--on);
 background:var(--surv);white-space:nowrap;align-self:flex-start;margin-top:2px}
 ul.surv li span.v.k{background:var(--kill)}
 .score .big.mid{color:var(--inc)}
@@ -67,7 +76,7 @@ check command), 1 run each, 2026-10-09.</p>
 <div class="score">
   <div class="big mid">36%</div>
   <div class="what">mutation score: 5 of 14 mutants caught</div>
-  <div class="detail">3 of 3 cases green at baseline &middot; 9 survived, 0 inconclusive &middot; $2.73</div>
+  <div class="detail">n = 14 mutants, 1 run per case, run-to-run variance not measured &middot; 3 of 3 cases green at baseline &middot; 9 survived, 0 inconclusive &middot; $2.73</div>
 </div>
 
 <ul class="surv">
@@ -111,7 +120,7 @@ or a survival.</p>
 <div class="score">
   <div class="big">0%</div>
   <div class="what">mutation score: 0 of 8 mutants caught</div>
-  <div class="detail">2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.60</div>
+  <div class="detail">n = 8 mutants, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.60</div>
 </div>
 
 <p>Same score, same eight survivors as the first run. This time I know why:
@@ -145,7 +154,7 @@ page it cites. 3 eval cases, 8 mutants of its skill, 1 run each, 2026-10-09.</p>
 <div class="score">
   <div class="big">0%</div>
   <div class="what">mutation score: 0 of 8 mutants caught</div>
-  <div class="detail">2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.66</div>
+  <div class="detail">n = 8 mutants, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.66</div>
 </div>
 
 <ul class="surv">
