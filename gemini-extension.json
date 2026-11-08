@@ -1,0 +1,5 @@
+{
+  "name": "litmus",
+  "version": "0.3.0",
+  "description": "Mutation testing for LLM and agent eval suites. Can your eval fail? Breaks the skill on purpose and checks the evals notice."
+}

@@ -5,6 +5,11 @@ description: >-
   or skill evals are any good, wants a mutation score for a `claude plugin eval`
   suite, suspects a grader always passes, or wants to know which parts of a
   skill their evals do not cover.
+metadata:
+  openclaw:
+    homepage: https://github.com/OrenSegal/litmus
+    requires:
+      bins: [python3]
 ---
 
 # litmus
