@@ -1,7 +1,7 @@
 # litmus audit over the saved two-arm claude plugin eval results of sous, scoped and cited.
 # Inputs (not committed: gitignored in those repos, and they hold agent transcripts and local paths):
 #   <repo>/evals/results/<timestamp>/aggregate-result.json, run 2026-10-02, 3 runs per case per arm.
-# Command: litmus audit ~/Documents/GitHub/{sous,scoped,cited}/evals/results/*/aggregate-result.json
+# Command: litmus audit {sous,scoped,cited}/evals/results/*/aggregate-result.json
 # Reading: 6 non-negative cases (sous 2, scoped 2, cited 2; no-urls-no-check is a negative case). In each suite's latest
 #   full run, 2 stayed green without the plugin: sous test-audit-deletion, scoped deny-means-coordinate.
 #   cited invalid-claims-file did the same in its earlier full run (00-47) but not the latest (00-51).
