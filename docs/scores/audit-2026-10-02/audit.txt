@@ -1,0 +1,38 @@
+# litmus audit over the saved two-arm claude plugin eval results of sous, scoped and cited.
+# Inputs (not committed: gitignored in those repos, and they hold agent transcripts and local paths):
+#   <repo>/evals/results/<timestamp>/aggregate-result.json, run 2026-10-02, 3 runs per case per arm.
+# Command: litmus audit ~/Documents/GitHub/{sous,scoped,cited}/evals/results/*/aggregate-result.json
+# Reading: 6 non-negative cases (sous 2, scoped 2, cited 2; no-urls-no-check is a negative case). In each suite's latest
+#   full run, 2 stayed green without the plugin: sous test-audit-deletion, scoped deny-means-coordinate.
+#   cited invalid-claims-file did the same in its earlier full run (00-47) but not the latest (00-51).
+# Captured 2026-11-07 with litmus 0.3.0; paths shortened, output otherwise verbatim.
+sous/evals/results/2026-10-02T00-47-46-974Z/aggregate-result.json: 2 case(s), 1 survived plugin removal, 1 grader(s) never failed
+  PLUGIN_REMOVAL_SURVIVED  test-audit-deletion: scored 1.00 with no plugin loaded (threshold 1.00)
+  NEVER_FAILED             test-audit-deletion/criteria: passed 6/6 runs across both arms
+scoped/evals/results/2026-10-02T00-47-55-094Z/aggregate-result.json: 2 case(s), 1 survived plugin removal, 1 grader(s) never failed
+  PLUGIN_REMOVAL_SURVIVED  deny-means-coordinate: scored 1.00 with no plugin loaded (threshold 1.00)
+  NEVER_FAILED             deny-means-coordinate/coordinates-first: passed 6/6 runs across both arms
+scoped/evals/results/2026-10-02T00-51-33-494Z/aggregate-result.json: 2 case(s), 1 survived plugin removal, 1 grader(s) never failed
+  PLUGIN_REMOVAL_SURVIVED  deny-means-coordinate: scored 1.00 with no plugin loaded (threshold 1.00)
+  NEVER_FAILED             deny-means-coordinate/coordinates-first: passed 6/6 runs across both arms
+scoped/evals/results/2026-10-02T01-34-45-870Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed
+scoped/evals/results/2026-10-02T01-53-56-937Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+scoped/evals/results/2026-10-02T01-59-05-605Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed
+cited/evals/results/2026-10-02T00-47-53-956Z/aggregate-result.json: 3 case(s), 1 survived plugin removal, 2 grader(s) never failed
+  PLUGIN_REMOVAL_SURVIVED  invalid-claims-file: scored 1.00 with no plugin loaded (threshold 1.00)
+  NEVER_FAILED             invalid-claims-file/report: passed 6/6 runs across both arms
+  PLUGIN_REMOVAL_SURVIVED  no-urls-no-check: scored 1.00 with no plugin loaded (threshold 1.00); negative case (expected)
+  NEVER_FAILED             no-urls-no-check/rewrite: passed 6/6 runs across both arms
+  NEVER_FAILED             no-urls-no-check/skill-not-fired: passed 6/6 runs across both arms (absence check) (expected)
+cited/evals/results/2026-10-02T00-51-33-283Z/aggregate-result.json: 3 case(s), 0 survived plugin removal, 1 grader(s) never failed
+  PLUGIN_REMOVAL_SURVIVED  no-urls-no-check: scored 1.00 with no plugin loaded (threshold 1.00); negative case (expected)
+  NEVER_FAILED             no-urls-no-check/rewrite: passed 6/6 runs across both arms
+  NEVER_FAILED             no-urls-no-check/skill-not-fired: passed 6/6 runs across both arms (absence check) (expected)
+cited/evals/results/2026-10-02T01-47-48-162Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+cited/evals/results/2026-10-02T01-53-01-298Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+cited/evals/results/2026-10-02T01-59-02-038Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed
+cited/evals/results/2026-10-02T02-02-30-023Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+cited/evals/results/2026-10-02T02-07-00-542Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed
+cited/evals/results/2026-10-02T02-10-39-950Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+cited/evals/results/2026-10-02T02-11-22-821Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed (one-arm run: no without-arm)
+cited/evals/results/2026-10-02T02-12-32-119Z/aggregate-result.json: 1 case(s), 0 survived plugin removal, 0 grader(s) never failed

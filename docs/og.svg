@@ -1,0 +1,13 @@
+<!-- Source of docs/og.png (numbers from docs/scores/cited-2026-10-09-r3/report.json). Regenerate on macOS:
+  qlmanage -t -s 1200 -o /tmp docs/og.svg && ffmpeg -y -i /tmp/og.svg.png -vf crop=1200:630:0:0 docs/og.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+<rect width="1200" height="630" fill="#fbfbfa"/>
+<text x="80" y="120" font-family="Menlo, monospace" font-size="28" fill="#6a6a66">litmus · mutation testing for eval suites</text>
+<text x="80" y="240" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="96" fill="#1b1b1a">Can your eval fail?</text>
+<text x="80" y="350" font-family="Helvetica, Arial, sans-serif" font-size="34" fill="#1b1b1a">cited, run 3: 5 of 14 mutants caught, 9 survived</text>
+<rect x="80" y="390" width="371.4" height="56" fill="#1a7f37"/>
+<rect x="451.4" y="390" width="668.6" height="56" fill="#cf222e"/>
+<text x="265.7" y="428" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="28" fill="#fff" text-anchor="middle">5 killed</text>
+<text x="785.7" y="428" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="28" fill="#fff" text-anchor="middle">9 survived</text>
+<text x="80" y="510" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#6a6a66">n=14 mutants, 1 run per case, run-to-run variance not measured</text>
+</svg>
