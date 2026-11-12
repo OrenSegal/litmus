@@ -85,6 +85,20 @@ class TestEngine(unittest.TestCase):
             self.assertEqual({m["verdict"] for m in rep["mutants"]}, {"INCONCLUSIVE"})
             self.assertEqual(len(runner.calls), 1)  # mutants are not run on a bad baseline
 
+    def test_reused_out_dir_does_not_read_the_previous_runs_results(self):
+        from litmus.adapters.base import CommandResult
+
+        def dead_after_baseline(argv, cwd, timeout, label, env=None):  # type: ignore[no-untyped-def]
+            if label == "baseline":
+                return FakeRunner(demo_scores)(argv, cwd, timeout, label, env)
+            return CommandResult(1, "", "could not start")  # writes no result
+
+        with TempDir() as d:
+            first = mutate(ClaudePluginEvalAdapter(FakeRunner(demo_scores)), DEMO, d / "out", MutateOptions(max_mutants=3))
+            self.assertNotIn("INCONCLUSIVE", {m["verdict"] for m in first["mutants"]})
+            again = mutate(ClaudePluginEvalAdapter(dead_after_baseline), DEMO, d / "out", MutateOptions(max_mutants=3))
+            self.assertEqual({m["verdict"] for m in again["mutants"]}, {"INCONCLUSIVE"})
+
     def test_relative_out_dir_still_finds_the_result(self):
         # The default --out is relative (.litmus/<stamp>) and the runner's cwd is the run dir.
         with TempDir() as d:
