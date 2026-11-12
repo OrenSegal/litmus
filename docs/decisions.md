@@ -111,7 +111,8 @@ judge. The README states this under "Limits".
 
 **Context.** SPEC section 6 and the README ask for `--runs 3` on any number
 that gets published, because with one run a single flaky case can fake a kill
-or a survival.
+or a survival. (That advice was later withdrawn: under the mean-of-runs rule
+more runs raise false kills. See SPEC section 6.)
 
 **Decision.** All three paid runs on cited, and both rootcause runs
 (2026-10-15 and 2026-11-06), used `--runs 1`, and the README says so next to
