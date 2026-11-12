@@ -42,7 +42,12 @@ def text_mutation(r: Dict[str, Any]) -> List[str]:
     if b:
         out.append(f"baseline: {'ok' if b.get('ok') else 'UNTRUSTED: ' + str(b.get('error'))}; "
                    f"green cases: {', '.join(b.get('green_cases') or []) or 'none'}")
-    out.append(f"mutation score: {_pct(s['mutation_score'])} ({s['killed']} killed / {s['total_run']} run; "
+    if b.get("red_cases"):
+        out.append("warning: not green on every baseline run, cannot show a kill: " + ", ".join(b["red_cases"]))
+    ci = s.get("mutation_score_ci95")
+    out.append(f"mutation score: {_pct(s['mutation_score'])}"
+               + (f" [95% Wilson interval {_pct(ci[0])} to {_pct(ci[1])}]" if ci else "")
+               + f" ({s['killed']} killed / {s['total_run']} run; "
                f"{s['survived']} survived, {s['inconclusive']} inconclusive, {s['not_run']} not run)")
     for m in r["mutants"]:
         if m["verdict"] in ("SURVIVED", "INCONCLUSIVE", "NOT_RUN"):
@@ -107,7 +112,9 @@ def html_report(r: Dict[str, Any]) -> str:
         f"litmus {e(r['litmus_version'])} &middot; {e(r['generated_at'])}</div>",
         "<div class='tiles'>",
         f"<div class='tile'><b>{_pct(s['mutation_score'])}</b><span>mutation score: {s['killed']} of {s['total_run']} mutants, "
-        f"{r['runs_per_case']} run{'s' if r['runs_per_case'] != 1 else ''} per case</span></div>",
+        f"{r['runs_per_case']} run{'s' if r['runs_per_case'] != 1 else ''} per case"
+        + (f", 95% Wilson interval {_pct(s['mutation_score_ci95'][0])} to {_pct(s['mutation_score_ci95'][1])}"
+           if s.get("mutation_score_ci95") else "") + "</span></div>",
         f"<div class='tile'><b>{s['killed']}</b><span>killed</span></div>",
         f"<div class='tile'><b>{s['survived']}</b><span>survived</span></div>",
         f"<div class='tile'><b>{s['inconclusive']}</b><span>inconclusive (not killed)</span></div>",

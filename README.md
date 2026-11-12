@@ -109,7 +109,7 @@ vacuity: 1 vacuous, 0 always-fail, 2 null-pass grader(s); 1 null-green case(s), 
   VACUOUS       ends-with-version/read-package-json (tool_used): min: 0 with no max accepts any number of calls, including none
   NULL_GREEN    no-todo-left [ablation-none]: green on a do-nothing run (silent, done, refusal, echo)
 baseline: ok; green cases: tests-only-diff, ends-with-version, no-todo-left
-mutation score: 50% (5 killed / 10 run; 5 survived, 0 inconclusive, 0 not run)
+mutation score: 50% [95% Wilson interval 24% to 76%] (5 killed / 10 run; 5 survived, 0 inconclusive, 0 not run)
   SURVIVED     delete-instruction:skills/changelog/SKILL.md:2:380a077e: delete line 8: - Always end with the version number from `package.json`.
   SURVIVED     invert-rule:skills/changelog/SKILL.md:1:55484473: line 8: 'Always' -> 'Never' in: - Always end with the version number from `package.json`.
   SURVIVED     wrong-fact:skills/changelog/SKILL.md:0:2c9c4b4a: line 9: '20' -> '40' in: - Keep each bullet under 20 words.
