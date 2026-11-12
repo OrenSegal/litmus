@@ -257,11 +257,16 @@ def parse_result(doc: Dict[str, Any], returncode: int = 0) -> SuiteRun:
     for c in doc.get("cases", []):
         runs = (c.get("arms") or {}).get("with") or []
         infra = [r.get("error") for r in runs if r.get("error") and _INFRA_ERROR.search(str(r.get("error")))]
+        # The runner scores a run that ended on an API error 0 without grading it,
+        # whatever the error text says. No grader ran, so the 0 is not a verdict.
+        ungraded = [r.get("error") for r in runs if r.get("error") and not r.get("graders")]
         skipped = any(r.get("skippedPaidGraders") for r in runs)
         score = (c.get("aggregates") or {}).get("score")
         err = None
         if infra:
             err = f"infrastructure error in {len(infra)} run(s): {infra[0]}"
+        elif ungraded:
+            err = f"{len(ungraded)} run(s) ended on an error with no grader results: {ungraded[0]}"
         elif skipped:
             err = "the cost ceiling skipped judge graders in a run"
         elif not runs or score is None:
