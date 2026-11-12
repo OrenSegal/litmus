@@ -76,7 +76,7 @@ check command), 1 run each, 2026-10-09.</p>
 <div class="score">
   <div class="big mid">36%</div>
   <div class="what">mutation score: 5 of 14 mutants caught</div>
-  <div class="detail">n = 14 mutants, 1 run per case, run-to-run variance not measured &middot; 3 of 3 cases green at baseline &middot; 9 survived, 0 inconclusive &middot; $2.73</div>
+  <div class="detail">n = 14 mutants, 95% Wilson interval 16% to 61%, 1 run per case, run-to-run variance not measured &middot; 3 of 3 cases green at baseline &middot; 9 survived, 0 inconclusive &middot; $2.73</div>
 </div>
 
 <ul class="surv">
@@ -96,9 +96,10 @@ check command), 1 run each, 2026-10-09.</p>
   <li><span class="v">SURVIVED</span><span>Command: changed "before" to "after" in its first line</span></li>
 </ul>
 
-<p>The suite catches damage to the command, which is what the agent actually
-follows, and mostly misses damage to the skill. Deleting the whole skill body
-changed nothing. Either that body is redundant with the command, or the suite
+<p>It caught 3 of the 7 command mutants and 2 of the 7 skill mutants. At one
+run each that gap is too small to say the suite covers one file better than
+the other. What stands out is narrower: deleting the whole skill body changed
+nothing, while deleting the command body turned two cases red. Either that body is redundant with the command, or the suite
 needs a case where the skill does work the command does not. That is the kind
 of answer a suite that always stays green cannot give you.</p>
 
@@ -120,7 +121,7 @@ or a survival.</p>
 <div class="score">
   <div class="big">0%</div>
   <div class="what">mutation score: 0 of 8 mutants caught</div>
-  <div class="detail">n = 8 mutants, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.60</div>
+  <div class="detail">n = 8 mutants, 95% Wilson interval 0% to 32%, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.60</div>
 </div>
 
 <p>Same score, same eight survivors as the first run. This time I know why:
@@ -154,7 +155,7 @@ page it cites. 3 eval cases, 8 mutants of its skill, 1 run each, 2026-10-09.</p>
 <div class="score">
   <div class="big">0%</div>
   <div class="what">mutation score: 0 of 8 mutants caught</div>
-  <div class="detail">n = 8 mutants, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.66</div>
+  <div class="detail">n = 8 mutants, 95% Wilson interval 0% to 32%, 1 run per case &middot; 2 of 3 cases green at baseline &middot; 8 survived, 0 inconclusive &middot; $1.66</div>
 </div>
 
 <ul class="surv">
