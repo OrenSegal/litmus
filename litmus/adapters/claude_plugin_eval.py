@@ -91,7 +91,7 @@ def _load_case(d: Path, eval_dir: Path) -> Case:
         try:
             data = parse_yaml(cy.read_text(encoding="utf-8")) or {}
         except FrontmatterError as exc:
-            raise SuiteError(f"{cy}: {exc} (install PyYAML: pip install 'litmus-ci[yaml]')") from exc
+            raise SuiteError(f"{cy}: {exc} (install PyYAML: pip install pyyaml)") from exc
         if not isinstance(data, dict):
             raise SuiteError(f"{cy}: not a mapping")
         meta.update({k: v for k, v in data.items() if k not in ("graders", "execution")})

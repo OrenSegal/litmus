@@ -130,21 +130,28 @@ def op_swap_tool_names(text: str) -> List[Site]:
     """Swap two tool names, or two inline-code spans (commands, flags, files), throughout the body."""
     head, body = split_raw(text)
     sites = []
-    tools = [t for t in _TOOL_NAMES if re.search(r"\b" + t + r"\b", body)]
-    tools.sort(key=lambda t: re.search(r"\b" + t + r"\b", body).start())  # type: ignore[union-attr]
+    lines = body.split("\n")
+    prose_idx = {i for i, _ in _prose_lines(body)}
+    prose = "\n".join(ln for _, ln in _prose_lines(body))
+
+    def swap(a: str, b: str, rx_a: str, rx_b: str) -> str:  # fenced lines pass through untouched
+        return "\n".join(_swap(ln, a, b, rx_a, rx_b) if i in prose_idx else ln for i, ln in enumerate(lines))
+
+    tools = [t for t in _TOOL_NAMES if re.search(r"\b" + t + r"\b", prose)]
+    tools.sort(key=lambda t: re.search(r"\b" + t + r"\b", prose).start())  # type: ignore[union-attr]
     for a, b in zip(tools, tools[1:]):
-        patched = _swap(body, a, b, r"\b" + a + r"\b", r"\b" + b + r"\b")
+        patched = swap(a, b, r"\b" + a + r"\b", r"\b" + b + r"\b")
         if patched != body:
             sites.append(Site(f"swap tool names {a} <-> {b}", head + patched))
     spans: List[str] = []
-    for m in _CODE_SPAN.finditer(body):
+    for m in _CODE_SPAN.finditer(prose):
         if m.group(1).startswith("$"):
             continue  # $ARGUMENTS and similar placeholders are not commands
         if m.group(1) not in spans:
             spans.append(m.group(1))
     for a, b in zip(spans, spans[1:]):
         ta, tb = f"`{a}`", f"`{b}`"
-        patched = _swap(body, ta, tb, re.escape(ta), re.escape(tb))
+        patched = swap(ta, tb, re.escape(ta), re.escape(tb))
         if patched != body:
             sites.append(Site(f"swap code spans {ta} <-> {tb}", head + patched))
     return sites
