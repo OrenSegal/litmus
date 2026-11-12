@@ -1,6 +1,6 @@
 """Read `---` frontmatter from markdown files, and YAML files.
 
-PyYAML is used when it is installed (`pip install litmus-ci[yaml]`). Without it,
+PyYAML is used when it is installed (`pip install pyyaml`). Without it,
 a small parser handles the subset eval frontmatter uses in practice: scalars,
 single and double quoted strings, flow lists `[a, b]`, flow maps `{a: b}` and
 one level of indented block maps or `- item` lists. Anything it cannot read
