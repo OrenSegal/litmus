@@ -305,8 +305,12 @@ run is untrusted, a baseline-green case is missing or untrusted in the mutant
 run (and nothing was killed), or the mutant is stale. NOT_RUN (budget) is
 listed and left out of both scores.
 
-With `--runs 1` a flaky case can fake a kill. Use `--runs 3` for a number you
-will publish, and read `decided_score` next to `mutation_score`.
+With `--runs 1` a flaky case can fake a kill or a survival. Raising `--runs`
+does not make a score safe to publish: the case score is the mean of its
+runs, so at threshold 1.0 one red run in N reddens the case, and more runs
+make a false kill more likely while making a false survival less likely. The
+baseline runs once, so the rate at which an unchanged subject is reported
+killed is not measured. Read `decided_score` next to `mutation_score`.
 
 ## 7. CLI and exit codes
 

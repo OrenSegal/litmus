@@ -29,7 +29,17 @@ is open; a promptfoo adapter is specified in SPEC section 4.3 and not built
 
 > The rule: a mutant only counts as killed when a trusted run shows it.
 > INCONCLUSIVE (a crashed, partial or rate-limited run, a baseline that was
-> never green, a stale mutant) never counts as killed.
+> never green, a stale mutant) never counts as killed. A run that ended on an
+> error with no grader results is untrusted whatever the error says (SPEC
+> section 4.1).
+
+Related work: [muteval](https://pypi.org/project/muteval/) is the closest
+existing tool I know of. Its PyPI page (first release 2026-06-15) describes
+mutation testing for LLM evals with promptfoo config ingestion,
+strict-majority verdicts over several runs per mutant and Wilson intervals. I
+have not run it. litmus differs in what it drives (`claude plugin eval`
+suites) and in the offline checks (`vacuity`, `audit`); it has no promptfoo
+adapter and decides a kill from one comparison.
 
 ## Components
 
@@ -56,14 +66,18 @@ What litmus found when I pointed it at real suites (details further down):
 | Suite | Check | Result |
 |---|---|---|
 | sous, cited, scoped (saved two-arm runs, 3 runs per arm) | `litmus audit` | 2 of 6 non-negative cases stayed green with the plugin removed ([audit output](docs/scores/audit-2026-10-02/audit.txt)) |
-| cited, runs 1 and 2 | `litmus mutate` | 0 of 8 mutants killed: the networked case was red at baseline, and the mutated file was one the agent never read |
-| cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%, n=14, 1 run per case): the suite catches damage to the command, not to the skill |
-| [rootcause](https://github.com/OrenSegal/rootcause) investigator brief, 25 scenarios, 1 run each | mutation run | 0 of 12 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
-| rootcause brief, rule suite (8 single-rule scenarios) | mutation run | 2 of 14 killed (11 survived, 1 inconclusive) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-11-06-rule-suite.md)) |
+| cited, runs 1 and 2 | `litmus mutate` | 0 of 8 mutants killed in each (95% Wilson interval 0% to 32%): the networked case was red at baseline, and the mutated file was one the agent never read |
+| cited, run 3, after fixing those confounds | `litmus mutate` | 5 of 14 killed (36%, 95% Wilson interval 16% to 61%, 1 run per case): 3 of 7 command mutants and 2 of 7 skill mutants, a gap one run each cannot separate from chance |
+| [rootcause](https://github.com/OrenSegal/rootcause) investigator brief, 25 scenarios, 1 run each | litmus operators; run and scored by rootcause's own harness | 0 of 12 killed (11 survived, 1 inconclusive; interval 0% to 24%) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-10-15.md)) |
+| rootcause brief, rule suite (8 single-rule scenarios) | litmus operators; run and scored by rootcause's own harness | 2 of 14 killed (11 survived, 1 inconclusive; interval 4% to 40%) ([results](https://github.com/OrenSegal/rootcause/blob/main/results/litmus/2026-11-06-rule-suite.md)) |
 
-All mutation runs used `--runs 1`, below the `--runs 3` that Limits asks for
-in published numbers, so a single flaky run can fake a kill or a survival.
-Treat them as first readings, not settled scores. No mutant has been run
+The two rootcause rows were not produced by `litmus mutate`: rootcause
+generates the mutants with litmus's operators, then runs and scores them with
+its own sweep harness and its own verdict module. The intervals are 95% Wilson intervals for killed over mutants
+run. They cover how few mutants there are, not noise in each verdict.
+
+All mutation runs used one run per case, so a single flaky run can fake a
+kill or a survival. Treat them as first readings, not settled scores. No mutant has been run
 twice under the same suite and setup, so the run-to-run flip rate is not
 measured; the few mutant ids shared between cited runs had the suite or
 litmus changed in between, so their differences are not variance.
@@ -328,10 +342,11 @@ Survived:
   (line 6), `swap-tool-names` (Write and
   Bash), `wrong-fact` (line 2).
 
-The pattern is the finding: the suite catches damage to the command, which
-is what the agent follows, and mostly misses damage to the skill, because
-with the command intact the skill body barely matters. Deleting the whole
-`SKILL.md` body changed nothing. Either the skill body is redundant with
+The counts are 3 of 7 command mutants killed and 2 of 7 skill mutants, at
+one run each. That gap is too small to say the suite covers the command
+better than the skill (Fisher's exact test on 3/7 against 2/7 gives p = 1.0).
+What the run does show is narrower: deleting the whole `SKILL.md` body
+changed nothing, while deleting the command body turned two cases red. Either the skill body is redundant with
 the command, or the suite needs a case where the skill and not the command
 does the work.
 
@@ -348,9 +363,14 @@ What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
 - **Survivors are not always gaps.** Some mutants are equivalent: deleting a
   redundant sentence changes nothing the model does. Read the list; do not
   chase 100%.
-- **Noise.** With `--runs 1` a flaky case can fake a kill. Use `--runs 3` for
-  numbers you publish. Every result in this README was run at `--runs 1`, so
-  none of them meets that bar yet: read them as first readings. The report shows `decided_score` (killed over killed
+- **Noise.** With `--runs 1` a flaky case can fake a kill or a survival. More
+  runs do not fix that as the engine stands: the runner scores a case as the
+  mean of its runs and litmus calls it red below the threshold, so at the
+  default threshold of 1.0 one red run in N is enough. `--runs 3` makes a
+  false survival less likely and a false kill more likely. The baseline is
+  run once, so litmus does not measure how often an unchanged prompt would be
+  reported killed. Every result in this README was run at `--runs 1`: read
+  them as first readings. The report shows `decided_score` (killed over killed
   plus survived) next to the strict score.
 - **Prose only.** Hooks, scripts and MCP servers are not mutated. A plugin
   whose behavior lives in a hook (the sous guard) gets little from prose
