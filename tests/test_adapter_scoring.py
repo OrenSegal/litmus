@@ -6,7 +6,7 @@ from pathlib import Path
 
 from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter, SuiteError, eval_env, parse_result
 from litmus.models import CaseRun, SuiteRun, Verdict
-from litmus.scoring import MutantResult, classify, summarize
+from litmus.scoring import MutantResult, classify, green_in_every, summarize, wilson
 
 from .helpers import DEMO, FakeRunner, TempDir, make_plugin, result_doc, write_case
 
@@ -164,6 +164,32 @@ class TestClassify(unittest.TestCase):
         base = run(a=1.0, b=1.0)
         mixed = SuiteRun(ok=True, cases={"a": CaseRun(0.0), "b": CaseRun(None, error="auth failed")})
         self.assertIs(classify(base, mixed, 1.0)[0], Verdict.KILLED)
+
+    def test_majority_rule_needs_most_runs_red_and_mean_rule_needs_one(self):
+        base = run(a=1.0)
+        one_of_three = SuiteRun(ok=True, cases={"a": CaseRun(2 / 3, run_scores=[1.0, 0.0, 1.0])})
+        two_of_three = SuiteRun(ok=True, cases={"a": CaseRun(1 / 3, run_scores=[0.0, 0.0, 1.0])})
+        self.assertIs(classify(base, one_of_three, 1.0)[0], Verdict.KILLED)  # today's rule, still the default
+        self.assertIs(classify(base, one_of_three, 1.0, majority=True)[0], Verdict.SURVIVED)
+        self.assertIs(classify(base, two_of_three, 1.0, majority=True)[0], Verdict.KILLED)
+        self.assertIs(classify(base, run(a=0.0), 1.0, majority=True)[0], Verdict.KILLED)  # no per-run scores: mean
+
+    def test_green_in_every_baseline_repeat(self):
+        self.assertEqual(green_in_every([run(a=1.0, b=1.0), run(a=1.0, b=0.0)], 1.0), ["a"])
+        self.assertIs(classify(run(a=1.0, b=1.0), run(a=1.0, b=0.0), 1.0, ["a"])[0], Verdict.SURVIVED)
+
+    def test_wilson_interval(self):
+        lo, hi = wilson(5, 14)
+        self.assertAlmostEqual(lo, 0.163, places=3)
+        self.assertAlmostEqual(hi, 0.612, places=3)
+        self.assertIsNone(wilson(0, 0))
+        self.assertEqual(summarize([MutantResult("1", "a", "f", "", Verdict.KILLED)])["mutation_score_ci95"][1], 1.0)
+
+    def test_parse_result_keeps_per_run_scores(self):
+        doc = result_doc({"a": 0.5})
+        doc["cases"][0]["arms"]["with"] = [{"score": 1.0, "error": None, "graders": []},
+                                           {"score": 0.0, "error": None, "graders": []}]
+        self.assertEqual(parse_result(doc).cases["a"].run_scores, [1.0, 0.0])
 
     def test_score_counts_inconclusive_in_the_denominator(self):
         rs = [MutantResult("1", "a", "f", "", Verdict.KILLED), MutantResult("2", "a", "f", "", Verdict.SURVIVED),

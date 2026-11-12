@@ -61,6 +61,7 @@ class CaseRun:
 
     score: Optional[float]  # None when nothing could be graded
     error: Optional[str] = None
+    run_scores: Optional[List[float]] = None  # one score per run, when the runner reports them
 
 
 @dataclass

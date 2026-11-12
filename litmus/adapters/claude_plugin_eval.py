@@ -272,5 +272,8 @@ def parse_result(doc: Dict[str, Any], returncode: int = 0) -> SuiteRun:
             err = "the cost ceiling skipped judge graders in a run"
         elif not runs or score is None:
             err = "no graded runs"
-        cases[str(c.get("name"))] = CaseRun(score=None if score is None else float(score), error=err)
+        per_run = [r.get("score") for r in runs]
+        cases[str(c.get("name"))] = CaseRun(
+            score=None if score is None else float(score), error=err,
+            run_scores=[float(s) for s in per_run] if per_run and all(s is not None for s in per_run) else None)
     return SuiteRun(ok=True, cases=cases, cost_usd=cost, raw=doc)

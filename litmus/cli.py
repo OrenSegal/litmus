@@ -104,7 +104,7 @@ def cmd_mutate(args: argparse.Namespace) -> int:
     opts = MutateOptions(operators=ops, max_mutants=args.max_mutants or None, max_sites=args.max_sites,
                          manifest=Path(args.mutants) if args.mutants else None, threshold=args.threshold,
                          budget_usd=args.max_cost_usd, dry_run=args.dry_run, keep_workdirs=args.keep,
-                         runs=args.runs)
+                         runs=args.runs, baseline_runs=args.baseline_runs, kill_rule=args.kill_rule)
     log = (lambda s: None) if args.quiet else (lambda s: print(s, file=sys.stderr))
     try:
         rep = mutate(adapter, Path(args.suite), out, opts, log)
@@ -155,6 +155,12 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--files", help="only mutate subject files matching this glob, e.g. 'skills/cited/*'")
     m.add_argument("--mutants", help="replay a recorded mutants.json instead of generating")
     m.add_argument("--runs", type=int, default=1, help="runs per case per mutant (passed to --runs)")
+    m.add_argument("--baseline-runs", type=int, default=1,
+                   help="repeat the unmutated baseline this many times; a case counts as green only if green "
+                        "in every repeat (default 1)")
+    m.add_argument("--kill-rule", choices=["mean", "majority"], default="mean",
+                   help="mean: a case is red when its mean score over --runs is below the threshold (default); "
+                        "majority: only when a strict majority of its runs are")
     m.add_argument("--min-score", type=float, default=0.5, help="exit 1 below this mutation score")
     m.add_argument("--max-cost-usd", type=float, help="stop launching mutants past this total spend")
     m.add_argument("--timeout", type=float, help="seconds one suite run (baseline or one mutant) may take; "

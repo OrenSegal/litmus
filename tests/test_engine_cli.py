@@ -14,6 +14,7 @@ from litmus.audit import audit_result
 from litmus.cli import main
 from litmus.engine import MutateOptions, mutate
 from litmus.mutants import Mutant, sha256, write_manifest
+from litmus.report import text_mutation
 
 from .helpers import DEMO, ROOT, FakeRunner, TempDir, demo_scores, result_doc
 
@@ -138,6 +139,38 @@ class TestEngine(unittest.TestCase):
         with TempDir() as d:
             res = subprocess_runner([sys.executable, "-c", "import time; time.sleep(30)"], d, 0.5, "x")
             self.assertEqual(res.returncode, 124)
+
+    def test_baseline_repeats_drop_a_case_that_is_not_green_every_time(self):
+        seen: List[str] = []
+
+        def score(workdir):  # type: ignore[no-untyped-def]
+            doc = demo_scores(workdir)
+            seen.append("x")
+            if len(seen) != 2:  # every run except the second baseline repeat: this case reads red
+                doc["cases"][1]["aggregates"]["score"] = 0.0
+            return doc
+
+        with TempDir() as d:
+            logs: List[str] = []
+            runner = FakeRunner(score)
+            rep = mutate(ClaudePluginEvalAdapter(runner), DEMO, d, MutateOptions(max_mutants=2, baseline_runs=3),
+                         logs.append)
+            self.assertEqual(runner.labels[:3], ["baseline", "baseline-2", "baseline-3"])
+            self.assertNotIn("ends-with-version", rep["baseline"]["green_cases"])
+            self.assertEqual(rep["baseline"]["red_cases"], ["ends-with-version"])
+            self.assertEqual(rep["baseline"]["repeat_scores"]["ends-with-version"], [0.0, 1.0, 0.0])
+            self.assertTrue(any(s.startswith("warning:") and "ends-with-version" in s for s in logs))
+            self.assertFalse(any("ends-with-version" in m["killed_by"] for m in rep["mutants"]))
+            self.assertIn("warning: not green on every baseline run", "\n".join(text_mutation(rep)))
+
+    def test_defaults_are_one_baseline_and_the_mean_rule(self):
+        with TempDir() as d:
+            runner = FakeRunner(demo_scores)
+            rep = mutate(ClaudePluginEvalAdapter(runner), DEMO, d, MutateOptions(max_mutants=2))
+            self.assertEqual((rep["baseline_runs"], rep["kill_rule"]), (1, "mean"))
+            self.assertEqual(runner.labels[:2].count("baseline"), 1)
+            self.assertNotIn("baseline-2", runner.labels)
+            self.assertIn("[95% Wilson interval", "\n".join(text_mutation(rep)))
 
     def test_budget_stops_launching_mutants(self):
         with TempDir() as d:
