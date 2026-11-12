@@ -44,7 +44,7 @@ def _adapter(args: argparse.Namespace, runner=None):  # type: ignore[no-untyped-
                threshold=args.threshold, model=getattr(args, "model", None),
                judge_model=getattr(args, "judge_model", None), allow_tools=getattr(args, "allow_tools", None),
                scaffold=getattr(args, "scaffold", False), case_glob=getattr(args, "case", None),
-               max_cost_usd=None, files_glob=getattr(args, "files", None))
+               max_cost_usd=None, files_glob=getattr(args, "files", None), timeout=getattr(args, "timeout", None))
 
 
 def cmd_operators(args: argparse.Namespace) -> int:
@@ -157,6 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--runs", type=int, default=1, help="runs per case per mutant (passed to --runs)")
     m.add_argument("--min-score", type=float, default=0.5, help="exit 1 below this mutation score")
     m.add_argument("--max-cost-usd", type=float, help="stop launching mutants past this total spend")
+    m.add_argument("--timeout", type=float, help="seconds one suite run (baseline or one mutant) may take; "
+                                                 "a run past it is untrusted (default: no limit)")
     m.add_argument("--model", help="model for the agent under test")
     m.add_argument("--judge-model", help="judge for llm graders")
     m.add_argument("--allow-tools", nargs="+", help="passed to claude plugin eval --allow-tools")

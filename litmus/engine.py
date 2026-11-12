@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -130,6 +131,12 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     return report
 
 
+def _checkpoint(out_dir: Path, report: Dict[str, Any], results: List[MutantResult]) -> None:
+    """Write what is known so far, so an interrupted run keeps the mutants it paid for."""
+    doc = {**report, "mutants": [r.to_obj() for r in results], "score": summarize(results), "partial": True}
+    (out_dir / "report.json").write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant], out_dir: Path,
              opts: MutateOptions, report: Dict[str, Any], n_cases: int, originals: Callable[[Mutant], str],
              log: Callable[[str], None]) -> List[MutantResult]:
@@ -142,6 +149,7 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
         "cases": {k: {"score": v.score, "error": v.error} for k, v in base.cases.items()},
         "green_cases": greens,
     }
+    _checkpoint(out_dir, report, results)
     spent = base.cost_usd or 0.0
     per_run = (base.cost_usd / (n_cases * opts.runs)) if base.cost_usd else _run_cost(adapter)
     stop_all = None
@@ -180,6 +188,7 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
         r.case_scores = {k: v.score for k, v in run.cases.items()}
         results.append(r)
         log(f"    {verdict.value}: {reason}")
+        _checkpoint(out_dir, report, results)
 
     report["spent_usd"] = round(spent, 4)
     return results
