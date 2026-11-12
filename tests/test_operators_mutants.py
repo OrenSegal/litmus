@@ -76,6 +76,14 @@ class TestOperators(unittest.TestCase):
         self.assertTrue(any("Use Bash before Read" in s.patched for s in sites))
         self.assertTrue(any("`npm test`" in s.description for s in sites))
 
+    def test_swap_tool_names_leaves_code_fences_alone(self):
+        text = "Use `Bash` then `Read`. Run Bash before Read.\n\n```bash\nBash --flag Read `Bash` `Read`\n```\n"
+        sites = mutate_text(text, "swap-tool-names")
+        self.assertTrue(sites)
+        for s in sites:
+            self.assertIn("```bash\nBash --flag Read `Bash` `Read`\n```", s.patched, s.description)
+        self.assertEqual(mutate_text("Use Read.\n\n```\nBash\n```\n", "swap-tool-names"), [])
+
     def test_drop_description_replaces_multiline_value(self):
         (s,) = mutate_text(SKILL, "drop-description")
         head, body = split_raw(s.patched)
