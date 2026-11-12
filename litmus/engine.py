@@ -14,7 +14,7 @@ from .adapters.base import Adapter
 from .models import SuiteRun, Verdict
 from .mutants import Mutant, UnsafeMutantPath, generate, load_manifest, materialize, select, stale, write_manifest
 from .operators import OPERATORS
-from .scoring import MutantResult, classify, green_cases, summarize
+from .scoring import MutantResult, classify, green_in_every, summarize
 from .vacuity import analyze
 
 __all__ = ["MutateOptions", "mutate", "REPORT_SCHEMA", "DEFAULT_RUN_COST_USD"]
@@ -35,7 +35,7 @@ class MutateOptions:
     def __init__(self, *, operators: Sequence[str] = tuple(OPERATORS), max_mutants: Optional[int] = 20,
                  max_sites: int = 5, manifest: Optional[Path] = None, threshold: float = 1.0,
                  budget_usd: Optional[float] = None, dry_run: bool = False, keep_workdirs: bool = False,
-                 runs: int = 1) -> None:
+                 runs: int = 1, baseline_runs: int = 1, kill_rule: str = "mean") -> None:
         self.operators = list(operators)
         self.max_mutants = max_mutants
         self.max_sites = max_sites
@@ -45,6 +45,8 @@ class MutateOptions:
         self.dry_run = dry_run
         self.keep_workdirs = keep_workdirs
         self.runs = runs
+        self.baseline_runs = max(1, baseline_runs)
+        self.kill_rule = kill_rule
 
 
 def _run_once(adapter: Adapter, suite: Any, source: Path, mutant: Optional[Mutant], out_dir: Path, label: str,
@@ -78,7 +80,7 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     write_manifest(out_dir / "mutants.json", suite.root, mutants)
 
     n_cases = len(suite.cases)
-    est = (1 + len(mutants)) * n_cases * opts.runs * _run_cost(adapter)
+    est = (opts.baseline_runs + len(mutants)) * n_cases * opts.runs * _run_cost(adapter)
     report: Dict[str, Any] = {
         "schema": REPORT_SCHEMA,
         "litmus_version": __version__,
@@ -88,6 +90,8 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
                   "cases": [c.name for c in suite.cases]},
         "threshold": opts.threshold,
         "runs_per_case": opts.runs,
+        "baseline_runs": opts.baseline_runs,
+        "kill_rule": opts.kill_rule,
         "command": adapter.describe_command(suite.root),
         "mutant_source": source,
         "estimate_usd": round(est, 2),
@@ -142,16 +146,30 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
              log: Callable[[str], None]) -> List[MutantResult]:
     results: List[MutantResult] = []
     log(f"baseline: running {n_cases} case(s) x {opts.runs} run(s) on the unmutated copy")
-    base = _run_once(adapter, suite, snapshot, None, out_dir / "runs" / "baseline", "baseline", opts.keep_workdirs)
-    greens = green_cases(base, opts.threshold) if base.ok else []
+    bases = []
+    for k in range(opts.baseline_runs):  # repeats: a case that is not green every time cannot show a kill
+        label = "baseline" if k == 0 else f"baseline-{k + 1}"
+        bases.append(_run_once(adapter, suite, snapshot, None, out_dir / "runs" / label, label, opts.keep_workdirs))
+        if not bases[-1].ok:
+            break
+    base = next((b for b in bases if not b.ok), bases[0])
+    greens = green_in_every(bases, opts.threshold) if base.ok else []
+    names = list(dict.fromkeys(n for b in bases for n in b.cases))
+    red = [n for n in names if n not in greens] if base.ok else []
+    spent = sum(b.cost_usd or 0.0 for b in bases)
     report["baseline"] = {
-        "ok": base.ok, "error": base.error, "cost_usd": base.cost_usd,
-        "cases": {k: {"score": v.score, "error": v.error} for k, v in base.cases.items()},
+        "ok": base.ok, "error": base.error, "cost_usd": spent if any(b.cost_usd for b in bases) else base.cost_usd,
+        "cases": {k: {"score": v.score, "error": v.error} for k, v in bases[0].cases.items()},
         "green_cases": greens,
+        "red_cases": red,
     }
+    if len(bases) > 1:
+        report["baseline"]["repeat_scores"] = {n: [b.cases[n].score if n in b.cases else None for b in bases]
+                                               for n in names}
+    if red:
+        log(f"warning: not green on every baseline run, so these case(s) cannot show a kill: {', '.join(red)}")
     _checkpoint(out_dir, report, results)
-    spent = base.cost_usd or 0.0
-    per_run = (base.cost_usd / (n_cases * opts.runs)) if base.cost_usd else _run_cost(adapter)
+    per_run = (spent / (n_cases * opts.runs * len(bases))) if spent else _run_cost(adapter)
     stop_all = None
     if not base.ok:
         stop_all = f"baseline run untrusted: {base.error}"
@@ -183,7 +201,7 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
             log(f"    {r.verdict.value}: {r.reason}")
             continue
         spent += run.cost_usd or 0.0
-        verdict, killed_by, reason = classify(base, run, opts.threshold)
+        verdict, killed_by, reason = classify(base, run, opts.threshold, greens, opts.kill_rule == "majority")
         r.verdict, r.killed_by, r.reason, r.cost_usd = verdict, killed_by, reason, run.cost_usd
         r.case_scores = {k: v.score for k, v in run.cases.items()}
         results.append(r)

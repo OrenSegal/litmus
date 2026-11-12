@@ -314,6 +314,7 @@ will publish, and read `decided_score` next to `mutation_score`.
 litmus mutate   <plugin> [--dry-run] [--yes] [--operators a,b] [--files GLOB]
                 [--max-mutants 20] [--max-sites 5] [--mutants manifest.json]
                 [--runs 1] [--threshold 1.0] [--min-score 0.5] [--max-cost-usd X]
+                [--baseline-runs 1] [--kill-rule mean|majority]
                 [--model M] [--judge-model J] [--allow-tools ...] [--scaffold]
                 [--case GLOB] [--eval-dir D] [--out DIR] [--keep] [--timeout SECONDS] [--allow-vacuous]
                 [--replay-results DIR]
@@ -326,6 +327,25 @@ A real `mutate` run needs `--yes`, because it calls `claude plugin eval`
 once for the baseline and once per mutant on your credential.
 `--max-cost-usd` stops launching mutants once the next one would pass the
 budget, estimated from the baseline's real cost per run.
+
+`--baseline-runs K` runs the unmutated baseline K times (labels `baseline`,
+`baseline-2`, ...). A case counts as green only if it is green in every
+repeat; the others are listed as `baseline.red_cases`, with each repeat's
+score in `baseline.repeat_scores`, and cannot show a kill. `--kill-rule
+majority` calls a baseline-green case red on a mutant only when a strict
+majority of its `--runs` runs score below the threshold; the default, `mean`,
+compares the mean of the runs with the threshold, so at threshold 1.0 one red
+run in N is enough. With one run per case the two rules agree. The majority
+rule needs per-run scores from the adapter (`CaseRun.run_scores`); without
+them it falls back to the mean. Both defaults (1, `mean`) are the behavior
+before these flags existed. `tests/test_false_kill_rate.py` simulates how
+often a case that passes 90% of the time gets an unchanged prompt reported
+KILLED under each setting.
+
+Every report carries `score.mutation_score_ci95`, the 95% Wilson interval for
+killed over mutants run, and prints it beside the score. The interval covers
+sampling of mutants only, not run-to-run noise in each verdict. A case that is
+not green at baseline is named in a warning line.
 
 | Exit | `mutate` | `vacuity` | `audit` |
 |---|---|---|---|
