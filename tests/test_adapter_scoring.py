@@ -123,11 +123,21 @@ class TestParseResult(unittest.TestCase):
         self.assertFalse(parse_result(result_doc({"a": 1.0}), returncode=2).ok)
         self.assertFalse(parse_result({"schemaVersion": 2}).ok)
 
-    def test_infra_error_marks_case_but_timeout_does_not(self):
-        r = parse_result(result_doc({"a": 0.0, "b": 0.0},
-                                    errors={"a": "API rate limit exceeded", "b": "timed out after 300s"}))
+    def test_infra_error_marks_case_but_graded_timeout_does_not(self):
+        doc = result_doc({"a": 0.0, "b": 0.0}, errors={"a": "API rate limit exceeded", "b": "timed out after 300s"})
+        doc["cases"][1]["arms"]["with"][0]["graders"] = [{"name": "g", "passed": False}]
+        r = parse_result(doc)
         self.assertIsNotNone(r.cases["a"].error)
         self.assertIsNone(r.cases["b"].error)
+
+    def test_errored_run_with_no_grader_results_is_untrusted_whatever_the_error_says(self):
+        # The runner scores a run that ended on an API error 0 without grading it.
+        base = parse_result(result_doc({"a": 1.0}))
+        for text in ("API Error: Connection error.", "API Error: 400 prompt is too long", "timed out after 300s",
+                     "API Error: 529 Overloaded"):
+            r = parse_result(result_doc({"a": 0.0}, errors={"a": text}), returncode=1)
+            self.assertIsNotNone(r.cases["a"].error, text)
+            self.assertIs(classify(base, r, 1.0)[0], Verdict.INCONCLUSIVE, text)
 
 
 def run(**scores) -> SuiteRun:  # type: ignore[no-untyped-def]
