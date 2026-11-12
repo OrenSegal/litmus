@@ -97,6 +97,34 @@ class TestEngine(unittest.TestCase):
                 os.chdir(cwd)
             self.assertTrue(rep["baseline"]["ok"], rep["baseline"]["error"])
 
+    def test_interrupted_run_leaves_a_partial_report(self):
+        inner = FakeRunner(demo_scores)
+
+        def interrupted(argv, cwd, timeout, label, env=None):  # type: ignore[no-untyped-def]
+            if len(inner.calls) == 2:  # baseline and one mutant are done
+                raise KeyboardInterrupt
+            return inner(argv, cwd, timeout, label, env)
+
+        with TempDir() as d:
+            with self.assertRaises(KeyboardInterrupt):
+                mutate(ClaudePluginEvalAdapter(interrupted), DEMO, d / "out", MutateOptions(max_mutants=3))
+            rep = json.loads((d / "out" / "report.json").read_text())
+            self.assertTrue(rep["partial"])
+            self.assertTrue(rep["baseline"]["ok"])
+            self.assertEqual(rep["score"]["total_run"], 1)
+
+    def test_timeout_flag_reaches_the_adapter_and_a_hung_runner_is_untrusted(self):
+        import sys
+
+        from litmus.adapters.base import subprocess_runner
+        from litmus.cli import _adapter, build_parser
+
+        args = build_parser().parse_args(["mutate", str(DEMO), "--timeout", "7"])
+        self.assertEqual(_adapter(args).timeout, 7.0)
+        with TempDir() as d:
+            res = subprocess_runner([sys.executable, "-c", "import time; time.sleep(30)"], d, 0.5, "x")
+            self.assertEqual(res.returncode, 124)
+
     def test_budget_stops_launching_mutants(self):
         with TempDir() as d:
             runner = FakeRunner(lambda w: result_doc({"tests-only-diff": 1.0}, cost=1.0))

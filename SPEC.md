@@ -267,6 +267,10 @@ Code. It drives Shelfie's own runner and its fixed ground truth; no judge.
 }
 ```
 
+During a run, `report.json` is rewritten after the baseline and after each
+mutant that ran, with `"partial": true`, so an interrupted run keeps the
+verdicts it already has. The final report has no `partial` key.
+
 `report.html` renders the same data as one self-contained page (no external
 requests, light and dark): score tiles, the vacuity table, every mutant with
 its verdict, reason and diff, and the exact command.
@@ -308,7 +312,7 @@ litmus mutate   <plugin> [--dry-run] [--yes] [--operators a,b] [--files GLOB]
                 [--max-mutants 20] [--max-sites 5] [--mutants manifest.json]
                 [--runs 1] [--threshold 1.0] [--min-score 0.5] [--max-cost-usd X]
                 [--model M] [--judge-model J] [--allow-tools ...] [--scaffold]
-                [--case GLOB] [--eval-dir D] [--out DIR] [--keep] [--allow-vacuous]
+                [--case GLOB] [--eval-dir D] [--out DIR] [--keep] [--timeout SECONDS] [--allow-vacuous]
                 [--replay-results DIR]
 litmus vacuity  <plugin> [--json] [--threshold T] [--case GLOB] [--eval-dir D]
 litmus audit    <aggregate-result.json>... [--json]
