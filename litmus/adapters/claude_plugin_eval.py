@@ -229,6 +229,7 @@ class ClaudePluginEvalAdapter:
         out_dir.mkdir(parents=True, exist_ok=True)
         # Absolute: the runner's cwd is out_dir, so a relative path would nest inside it.
         out_json = out_dir.resolve() / "result.json"
+        out_json.unlink(missing_ok=True)  # a reused --out must not answer for a run that wrote nothing
         res = self.runner(self.command(workdir, out_json), out_dir, self.timeout, label, env=eval_env(workdir))
         (out_dir / "stderr.txt").write_text(res.stderr or "", encoding="utf-8")
         # Exit 1 means "a case scored below --threshold": the expected outcome
