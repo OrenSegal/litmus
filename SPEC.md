@@ -171,8 +171,11 @@ deterministic types; another adapter maps its own assertion types onto
   like). A missing result, `partial: true`, or any other exit code makes the
   run untrusted. A case whose runs hit an infrastructure error (rate limit,
   usage limit, auth, overloaded, 429, 5xx) or skipped paid graders under a
-  cost ceiling is untrusted. A timeout or turn cap is behavior, not
-  infrastructure: it is graded on what it produced, as the runner does.
+  cost ceiling is untrusted. So is a case with a run that ended on any error
+  and has no grader results: the runner scores such a run 0 without grading
+  it, so the 0 says nothing about the mutant. A timeout or turn cap that the
+  runner did grade is behavior, not infrastructure: it counts on what it
+  produced, as the runner does.
 
 ### 4.2 `shelfie-substitution` (shipped)
 
