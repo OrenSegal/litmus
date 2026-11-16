@@ -9,7 +9,7 @@
 
 [![cited run 3: mutation score 36%, 5 of 14 mutants killed, 9 survived, 0 inconclusive; 1 run per case, variance not measured](docs/score.svg)](https://orensegal.github.io/litmus/scores/cited-2026-10-09-r3/report.html)
 
-<sub>cited run 3 from [docs/scores/cited-2026-10-09-r3/report.json](docs/scores/cited-2026-10-09-r3/report.json), `--runs 1`. Regenerate: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`; the social preview `docs/og.png` is drawn from `docs/og.svg`.</sub>
+<sub>cited run 3, one run per mutant, so run-to-run variance is not measured. Data: [report.json](docs/scores/cited-2026-10-09-r3/report.json).</sub>
 
 An eval suite that never goes red tells you nothing. litmus breaks the thing
 under test on purpose (deletes an instruction from a skill, inverts a rule,
@@ -20,6 +20,20 @@ diff, so you know which part of your prompt is untested.
 
 It also finds graders that cannot fail at all, offline and for free, before
 you spend anything on runs.
+
+Try it with no key and no spend, on a bundled demo plugin with recorded results:
+
+```bash
+git clone --depth 1 https://github.com/OrenSegal/litmus && cd litmus
+python3 -m litmus.cli mutate examples/demo-plugin --replay-results examples/demo-recordings
+```
+
+```
+mutation score: 50% [95% Wilson interval 24% to 76%] (5 killed / 10 run; 5 survived, 0 inconclusive, 0 not run)
+  SURVIVED     invert-rule:skills/changelog/SKILL.md:1:55484473: line 8: 'Always' -> 'Never' in: - Always end with the version number from `package.json`.
+```
+
+Inverting "Always" to "Never" changed nothing the suite checks. That line is untested.
 
 litmus runs on top of [`claude plugin eval`](https://code.claude.com/docs/en/plugin-evals),
 Claude Code's plugin eval runner. It does not replace it: the runner runs and
@@ -32,14 +46,6 @@ is open; a promptfoo adapter is specified in SPEC section 4.3 and not built
 > never green, a stale mutant) never counts as killed. A run that ended on an
 > error with no grader results is untrusted whatever the error says (SPEC
 > section 4.1).
-
-Related work: [muteval](https://pypi.org/project/muteval/) is the closest
-existing tool I know of. Its PyPI page (first release 2026-06-15) describes
-mutation testing for LLM evals with promptfoo config ingestion,
-strict-majority verdicts over several runs per mutant and Wilson intervals. I
-have not run it. litmus differs in what it drives (`claude plugin eval`
-suites) and in the offline checks (`vacuity`, `audit`); it has no promptfoo
-adapter, and every score published here rests on one run per mutant.
 
 ## Components
 
@@ -354,6 +360,16 @@ does the work.
 a kill or a survival. The two kills that rest on one regex grader
 (`disclosed`) are the most exposed to that.
 
+## Related work
+
+[muteval](https://pypi.org/project/muteval/) is the closest
+existing tool I know of. Its PyPI page (first release 2026-06-15) describes
+mutation testing for LLM evals with promptfoo config ingestion,
+strict-majority verdicts over several runs per mutant and Wilson intervals. I
+have not run it. litmus differs in what it drives (`claude plugin eval`
+suites) and in the offline checks (`vacuity`, `audit`); it has no promptfoo
+adapter, and every score published here rests on one run per mutant.
+
 ## Scope
 
 What litmus does and does not cover: [docs/SCOPE.md](./docs/SCOPE.md).
@@ -408,5 +424,7 @@ python3 -m unittest discover -s tests -t .   # offline, no model, no network
 ruff check litmus tests examples && mypy
 python3 examples/record_demo.py              # after editing the demo skill
 ```
+
+The score badge is drawn from a report: `python scripts/score_svg.py docs/scores/cited-2026-10-09-r3/report.json docs/score.svg`. The social preview `docs/og.png` is drawn from `docs/og.svg`.
 
 MIT. Oren Segal.
