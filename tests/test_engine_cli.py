@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import unittest
 from pathlib import Path
@@ -269,6 +270,33 @@ class TestCli(unittest.TestCase):
                                "--quiet", "--max-mutants", "2")
             self.assertEqual(code, 2)
             self.assertIn("baseline", err)
+
+
+class TestReportText(unittest.TestCase):
+    def test_every_badge_in_the_html_report_has_a_background(self):
+        # Badge text is var(--on) (white in the light theme). A badge class with
+        # no background rule is white on white: the UNTRUSTED baseline badge was.
+        with TempDir() as d:
+            (d / "empty").mkdir()
+            code, _, _ = cli("mutate", str(DEMO), "--replay-results", str(d / "empty"), "--out", str(d / "o"),
+                             "--quiet", "--max-mutants", "2")
+            self.assertEqual(code, 2)
+            html = (d / "o" / "report.html").read_text()
+            style = html.split("<style>")[1].split("</style>")[0]
+            badges = set(re.findall(r'class="v ([A-Z_]+)"', html))
+            self.assertIn("UNTRUSTED", badges)
+            for b in sorted(badges):
+                self.assertRegex(style, r"\." + b + r"[,{]", f"no CSS rule for the {b} badge")
+
+    def test_dry_run_line_counts_every_baseline_repeat(self):
+        with TempDir() as d:
+            _, out, _ = cli("mutate", str(DEMO), "--dry-run", "--allow-vacuous", "--baseline-runs", "3",
+                            "--out", str(d))
+            line = next(ln for ln in out.splitlines() if ln.startswith("dry run:"))
+            # 10 mutants + 3 baseline repeats, 3 cases, $0.10 a run: the formula shown must give the estimate shown.
+            self.assertIn("estimate $3.90", line)
+            self.assertIn("(3 baseline + 10 mutants)", line)
+            self.assertNotIn("(1 + mutants)", line)
 
 
 class TestNothingToMutate(unittest.TestCase):

@@ -27,6 +27,10 @@
   copying the skill, so pointing it at a skills parent folder wiped every
   other skill. It now replaces only a missing or empty folder, or an earlier
   copy of the litmus skill, and refuses anything else.
+- `report.html`: the UNTRUSTED baseline badge had no background, so it was
+  white on white in the light theme.
+- The `--dry-run` line showed the estimate as `(1 + mutants)` runs whatever
+  `--baseline-runs` was; it now shows the baseline repeats it counted.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 

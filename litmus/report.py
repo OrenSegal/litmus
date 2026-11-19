@@ -40,7 +40,8 @@ def text_mutation(r: Dict[str, Any]) -> List[str]:
     out = text_vacuity(r["vacuity"])
     if r["dry_run"]:
         out.append(f"dry run: {len(r['mutants'])} mutant(s) would run; estimate ${r['estimate_usd']:.2f} "
-                   f"({len(r['suite']['cases'])} case(s) x {r['runs_per_case']} run(s) x (1 + mutants))")
+                   f"({len(r['suite']['cases'])} case(s) x {r['runs_per_case']} run(s) x "
+                   f"({r.get('baseline_runs', 1)} baseline + {len(r['mutants'])} mutants))")
         out.append(f"each run: {r['command']}")
         for m in r["mutants"]:
             out.append(f"  {m['id']}  {m['description']}")
@@ -94,7 +95,7 @@ h1{font-size:1.5rem;margin:0}h2{font-size:1.1rem;margin:2rem 0 .5rem}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:6px 8px;
 border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
 .v{font:600 11px/1 ui-monospace,monospace;padding:4px 6px;border-radius:5px;color:var(--on);white-space:nowrap}
-.KILLED{background:var(--kill)}.SURVIVED,.VACUOUS,.NULL_GREEN,.ALWAYS_FAILS{background:var(--surv)}
+.KILLED{background:var(--kill)}.SURVIVED,.VACUOUS,.NULL_GREEN,.ALWAYS_FAILS,.UNTRUSTED{background:var(--surv)}
 .INCONCLUSIVE,.NULL_PASS,.JUDGE_ONLY{background:var(--inc)}.NOT_RUN,.OK,.DISCRIMINATES,.UNKNOWN{background:var(--nr)}
 code,pre{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
 pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;margin:.4rem 0}
