@@ -84,8 +84,12 @@ tool calls or created files.
 litmus re-implements the four deterministic grader types (`regex`,
 `tool_used`, `tool_order`, `file_exists`) from the published docs to grade
 probes. Patterns are JavaScript regexes; litmus translates named groups,
-backreferences, `[^]` and flags, and treats `\d`, `\w`, `\b` as ASCII unless
-the `u` flag is set. A pattern it cannot translate makes the grader UNKNOWN.
+backreferences, `[^]` and flags, and treats `\d`, `\w`, `\b` as ASCII, as
+JavaScript does with or without the `u` flag. A pattern it cannot translate
+(the sticky flag `y`, a Unicode property escape) makes the grader UNKNOWN. So
+does a pattern or probe text outside ASCII on which Python's ASCII and Unicode
+modes give different answers: JavaScript's `\s` and case-insensitive matching
+are Unicode-aware while its `\d` and `\w` are not, so neither answer is safe.
 `llm` and `baseline` graders are always UNKNOWN on probes: litmus never calls
 a judge for them.
 

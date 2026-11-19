@@ -55,13 +55,15 @@ class UntranslatableRegex(ValueError):
     pass
 
 
-_JS_FLAGS = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL, "g": 0, "u": 0, "y": 0, "d": 0}
+_JS_FLAGS = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL, "g": 0, "u": 0, "d": 0}
 
 
 def js_regex(pattern: str, flags: str = "") -> Tuple[str, int]:
     """Translate a JavaScript regex to (python_pattern, re_flags) or raise UntranslatableRegex."""
-    py_flags = 0 if "u" in (flags or "") else re.ASCII  # JS \d \w \b are ASCII unless /u
+    py_flags = re.ASCII  # JS \d \w \b are ASCII, with or without /u
     for f in flags or "":
+        if f == "y":  # sticky: the match must start at index 0, which a search does not model
+            raise UntranslatableRegex("the sticky flag (y) is not modelled")
         if f not in _JS_FLAGS:
             raise UntranslatableRegex(f"unknown JS regex flag {f!r}")
         py_flags |= _JS_FLAGS[f]
@@ -126,18 +128,27 @@ def _regex(g: Grader, run: ProbeRun) -> GraderResult:
     if text is None:
         return GraderResult(Outcome.UNKNOWN, why)
     match = str(cfg.get("match") or "contains")
+    if not (match in ("contains", "not_contains") or match.startswith("count:")):
+        return GraderResult(Outcome.UNKNOWN, f"unknown match mode {match!r}")
     try:
-        if match == "contains":
-            ok = search_any(py, [text], REGEX_TIMEOUT, flags)
-        elif match == "not_contains":
-            ok = not search_any(py, [text], REGEX_TIMEOUT, flags)
-        elif match.startswith("count:"):
-            ok = count_matches(py, text, REGEX_TIMEOUT, flags) == int(match.split(":", 1)[1])
-        else:
-            return GraderResult(Outcome.UNKNOWN, f"unknown match mode {match!r}")
+        ok = _matches(py, flags, text, match)
+        # Outside ASCII, JavaScript sits between Python's two modes: its \d \w \b
+        # are ASCII (Python's ASCII mode), its \s and case-insensitive matching are
+        # Unicode (Python's default mode). Where the two modes agree the answer
+        # is safe; where they differ litmus does not know what the runner does.
+        if not (py.isascii() and text.isascii()) and _matches(py, flags & ~re.ASCII, text, match) != ok:
+            return GraderResult(Outcome.UNKNOWN, "JavaScript and Python regex rules may differ on this non-ASCII text")
     except RegexTimeout:
         return GraderResult(Outcome.UNKNOWN, "regex timed out")
     return GraderResult(Outcome.PASS if ok else Outcome.FAIL, f"{match} /{pattern}/")
+
+
+def _matches(py: str, flags: int, text: str, match: str) -> bool:
+    if match == "contains":
+        return search_any(py, [text], REGEX_TIMEOUT, flags)
+    if match == "not_contains":
+        return not search_any(py, [text], REGEX_TIMEOUT, flags)
+    return count_matches(py, text, REGEX_TIMEOUT, flags) == int(match.split(":", 1)[1])
 
 
 def _calls_matching(tool: str, input_match: Optional[str], run: ProbeRun) -> Optional[List[int]]:

@@ -31,6 +31,11 @@
   white on white in the light theme.
 - The `--dry-run` line showed the estimate as `(1 + mutants)` runs whatever
   `--baseline-runs` was; it now shows the baseline repeats it counted.
+- Probe regexes: `\d`, `\w` and `\b` stay ASCII under the `u` flag, as in
+  JavaScript (litmus made them Unicode). The sticky flag `y` is UNKNOWN, not
+  a plain search. A pattern or probe text outside ASCII on which Python's
+  two modes disagree (`\s` on a no-break space, `i` on an accented letter)
+  is UNKNOWN instead of a PASS or FAIL the runner would not give.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 
