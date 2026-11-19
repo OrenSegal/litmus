@@ -19,7 +19,10 @@
   no longer reads the previous run's `result.json` as its own (the
   `claude-plugin-eval` adapter already removed it first).
 - The fallback frontmatter parser (used when PyYAML is not installed) now
-  reads every value as PyYAML does or raises: `pattern: "TODO" # note` kept
+  reads the values eval frontmatter uses as PyYAML does, and raises on far
+  more of what it cannot read (not on everything: dates stay strings, and a
+  flow map written without a space after the colon, `{a:1}`, or with a
+  `yes`/`1`/`null` key still differs from PyYAML): `pattern: "TODO" # note` kept
   the quotes in the pattern, `[a, b] # note` became a string, `1e3`, `nan`
   and `08` became numbers, `off` stayed a string, an unclosed quote was
   accepted, and a map nested two levels deep was flattened silently.

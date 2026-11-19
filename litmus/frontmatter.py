@@ -191,7 +191,9 @@ def _scalar(s: str) -> Any:
     """One scalar, read as PyYAML reads it; FrontmatterError where the two would differ."""
     if s[:1] in ("'", '"'):
         return _quoted(s)
-    s = _strip_comment(s)
+    # A plain scalar: quotes inside it are ordinary characters (`don't # note`),
+    # so the comment starts at the first ` #` whatever precedes it.
+    s = re.split(r"(?:^|\s)#", s, maxsplit=1)[0].rstrip()
     if s in _TRUE:
         return True
     if s in _FALSE:
@@ -204,7 +206,10 @@ def _scalar(s: str) -> Any:
     for rx, base in _INT:
         if rx.match(s):
             digits = s.replace("_", "")
-            return int(digits, base) if base == 10 else int(digits.replace("0x", "").replace("0b", ""), base)
+            try:
+                return int(digits, base) if base == 10 else int(digits.replace("0x", "").replace("0b", ""), base)
+            except ValueError:  # `0x_`: no digits at all (PyYAML crashes on it too)
+                raise FrontmatterError(f"cannot parse value: {s!r}") from None
     if _FLOAT.match(s):
         return float(s.replace("_", ""))
     if s in (".inf", ".Inf", ".INF", "+.inf", "+.Inf", "+.INF"):

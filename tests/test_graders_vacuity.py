@@ -79,6 +79,10 @@ class TestFrontmatter(unittest.TestCase):
         "version: 1.2.3": {"version": "1.2.3"},
         'x: "a"#b': {"x": "a"},
         "x: a#b": {"x": "a#b"},
+        "x: don't # note": {"x": "don't"},  # a quote inside a plain scalar does not hide the comment
+        'x: say "hi # there': {"x": 'say "hi'},
+        "x:\n  - can't # c\n  - b": {"x": ["can't", "b"]},
+        "x:\n  - #c\n  - b": {"x": [None, "b"]},
         "x: [a, 'b, c'] # d": {"x": ["a", "b, c"]},
         "x: {a: 1} # c": {"x": {"a": 1}},
         "k: # c": {"k": None},
@@ -95,7 +99,7 @@ class TestFrontmatter(unittest.TestCase):
     }
     NOT_YAML = ('x: "abc', "x: 'abc", 'x: "a" b', "pattern: a: b", "x: foo:", "x: *a", "x: @a", "x: %a", "x: [a, b")
     # Valid YAML the fallback does not implement: an error, never a guess.
-    NOT_IMPLEMENTED = ("x: |", "x: >-", "x: &a b", "x: 1:30")
+    NOT_IMPLEMENTED = ("x: |", "x: >-", "x: &a b", "x: 1:30", "x: 0x_", "x: 0b_")
 
     def test_mini_parser_reads_scalars_as_yaml_does(self):
         for text, want in self.SAME_AS_YAML.items():
