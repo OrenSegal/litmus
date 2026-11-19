@@ -23,6 +23,10 @@
   the quotes in the pattern, `[a, b] # note` became a string, `1e3`, `nan`
   and `08` became numbers, `off` stayed a string, an unclosed quote was
   accepted, and a map nested two levels deep was flattened silently.
+- `bin/install.js --dir DIR` deleted `DIR` and everything in it before
+  copying the skill, so pointing it at a skills parent folder wiped every
+  other skill. It now replaces only a missing or empty folder, or an earlier
+  copy of the litmus skill, and refuses anything else.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 
