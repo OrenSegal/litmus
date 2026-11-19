@@ -355,7 +355,7 @@ not green at baseline is named in a warning line.
 |---|---|---|---|
 | 0 | score at or above `--min-score` and no vacuity failure | no vacuity failure | no unexpected finding |
 | 1 | score below `--min-score`, or a vacuity failure (VACUOUS, ALWAYS_FAILS, NULL_GREEN) unless `--allow-vacuous` | a vacuity failure | an unexpected finding |
-| 2 | could not evaluate: bad suite or manifest, missing `--yes`, untrusted baseline, or no green baseline case | bad suite | unreadable or wrong-schema file |
+| 2 | could not evaluate: bad suite or manifest, missing `--yes`, nothing to mutate (checked before the baseline runs), untrusted baseline, or no green baseline case | bad suite | unreadable or wrong-schema file |
 
 A `--dry-run` exits 0 or 1 on vacuity alone and runs nothing.
 

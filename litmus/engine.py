@@ -17,7 +17,7 @@ from .operators import OPERATORS
 from .scoring import MutantResult, classify, green_in_every, summarize
 from .vacuity import analyze
 
-__all__ = ["MutateOptions", "mutate", "REPORT_SCHEMA", "DEFAULT_RUN_COST_USD"]
+__all__ = ["MutateOptions", "NothingToMutate", "mutate", "REPORT_SCHEMA", "DEFAULT_RUN_COST_USD"]
 
 REPORT_SCHEMA = "litmus.report/1"
 # Mean list-price cost of one agent run in litmus's own suite (12 runs, $1.14,
@@ -29,6 +29,10 @@ DEFAULT_RUN_COST_USD = 0.10
 def _run_cost(adapter: Adapter) -> float:
     """An adapter whose runs are not agent runs may set `case_run_cost_usd`."""
     return float(getattr(adapter, "case_run_cost_usd", None) or DEFAULT_RUN_COST_USD)
+
+
+class NothingToMutate(ValueError):
+    """A real run was asked for and there is no mutant to run."""
 
 
 class MutateOptions:
@@ -73,10 +77,17 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     if opts.manifest:
         mutants = load_manifest(opts.manifest)
         source = str(opts.manifest)
+        nothing = f"{opts.manifest}: the manifest lists no mutants"
     else:
         files = adapter.subject_files(suite)
         mutants = select(generate(suite.root, files, opts.operators, opts.max_sites), opts.max_mutants)
         source = "deterministic operators: " + ", ".join(opts.operators)
+        nothing = (f"the operators found no site in the {len(files)} subject file(s) under {suite.root}" if files
+                   else f"no subject file under {suite.root} (check --files; hooks, scripts and MCP servers "
+                        "are not mutated)")
+    if not mutants and not opts.dry_run:
+        # Without this a real run paid for the baseline and then reported a score of n/a.
+        raise NothingToMutate(f"nothing to mutate: {nothing}")
     write_manifest(out_dir / "mutants.json", suite.root, mutants)
 
     n_cases = len(suite.cases)

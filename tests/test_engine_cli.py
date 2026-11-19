@@ -271,6 +271,43 @@ class TestCli(unittest.TestCase):
             self.assertIn("baseline", err)
 
 
+class TestNothingToMutate(unittest.TestCase):
+    """A real run with no mutants used to pay for the baseline, print
+    `mutation score: n/a` and exit 1, the code for a suite that failed the bar."""
+
+    def test_no_subject_file_is_exit_2_before_any_run(self):
+        with TempDir() as d:
+            plugin = d / "demo"
+            shutil.copytree(DEMO, plugin)
+            runner = FakeRunner(demo_scores)
+            with self.assertRaises(ValueError) as ctx:
+                mutate(ClaudePluginEvalAdapter(runner, files_glob="skils/*"), plugin, d / "out", MutateOptions())
+            self.assertIn("nothing to mutate", str(ctx.exception))
+            self.assertEqual(runner.calls, [], "the baseline must not be paid for when there is nothing to mutate")
+
+    def test_cli_exit_code_and_message(self):
+        with TempDir() as d:
+            code, _, err = cli("mutate", str(DEMO), "--files", "skils/*", "--replay-results",
+                               str(ROOT / "examples/demo-recordings"), "--out", str(d / "o"), "--quiet")
+            self.assertEqual(code, 2)
+            self.assertIn("nothing to mutate", err)
+
+    def test_empty_manifest_is_exit_2(self):
+        with TempDir() as d:
+            write_manifest(d / "m.json", DEMO, [])
+            code, _, err = cli("mutate", str(DEMO), "--mutants", str(d / "m.json"), "--replay-results",
+                               str(ROOT / "examples/demo-recordings"), "--out", str(d / "o"), "--quiet")
+            self.assertEqual(code, 2)
+            self.assertIn("m.json", err)
+
+    def test_dry_run_still_lists_zero_mutants(self):
+        with TempDir() as d:
+            code, out, _ = cli("mutate", str(DEMO), "--files", "skils/*", "--dry-run", "--allow-vacuous",
+                               "--out", str(d / "o"))
+            self.assertEqual(code, 0)
+            self.assertIn("0 mutant(s) would run", out)
+
+
 def two_arm(case: str, graders: list, with_runs: list, without_runs: list, score_without: float) -> dict:
     return {"schemaVersion": 1, "suite": {"threshold": 1, "ablation": "with-without"}, "cases": [{
         "name": case, "graders": graders,

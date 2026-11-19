@@ -11,6 +11,10 @@
 - A grader config value litmus cannot read (`match: count:x`, `min: lots`)
   makes that grader UNKNOWN with the reason, instead of crashing `vacuity`
   and `mutate`. `vacuity` now prints UNKNOWN deterministic graders.
+- A real `mutate` run with nothing to mutate (a `--files` glob that matches
+  no file, a plugin with no skill, agent or command prose, an empty manifest)
+  exits 2 before the baseline runs. It used to pay for the baseline, print
+  `mutation score: n/a` and exit 1.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 
