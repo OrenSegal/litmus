@@ -163,6 +163,23 @@ class TestMutants(unittest.TestCase):
             self.assertEqual((dest / "skills/s/SKILL.md").read_text(), ms[0].patched)
             self.assertNotEqual((root / "skills/s/SKILL.md").read_text(), ms[0].patched)
 
+    def test_materialize_links_dependency_dirs_below_the_root_too(self):
+        # A nested node_modules or .venv (a plugin with a package in a subfolder)
+        # used to be neither copied nor linked, so the copy could not run.
+        with TempDir() as d:
+            root = make_plugin(d / "p")
+            (root / "mcp/server/node_modules/dep").mkdir(parents=True)
+            (root / "mcp/server/node_modules/dep/index.js").write_text("1\n")
+            (root / "tools/.venv/bin").mkdir(parents=True)
+            (root / ".git/node_modules").mkdir(parents=True)  # under a skipped dir: stays out
+            snapshot = materialize(root, d / "snap", None, "evals/results")
+            copy = materialize(snapshot, d / "copy", None, "evals/results")  # the engine copies a snapshot
+            for dest in (snapshot, copy):
+                self.assertTrue(os.path.islink(dest / "mcp/server/node_modules"))
+                self.assertEqual((dest / "mcp/server/node_modules/dep/index.js").read_text(), "1\n")
+                self.assertTrue(os.path.islink(dest / "tools/.venv"))
+                self.assertFalse((dest / ".git").exists())
+
     def test_materialize_never_writes_through_a_file_symlink(self):
         with TempDir() as d:
             root = make_plugin(d / "p")

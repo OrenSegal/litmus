@@ -166,10 +166,14 @@ def _ignore(results_rel: Optional[str]):  # type: ignore[no-untyped-def]
 def materialize(root: Path, dest: Path, mutant: Optional[Mutant], results_rel: Optional[str] = None) -> Path:
     """Copy `root` to `dest` (dependency dirs symlinked) and apply `mutant` if given."""
     shutil.copytree(root, dest, ignore=_ignore(results_rel), symlinks=True)
-    for name in _LINK:
-        src = root / name
-        if src.exists():
-            os.symlink(src, dest / name)
+    # copytree left every dependency dir out, at any depth; link each one back in.
+    for dirpath, dirnames, _ in os.walk(root):
+        here = dest / Path(dirpath).relative_to(root)
+        for name in list(dirnames):
+            if name in _SKIP or name in _LINK:
+                dirnames.remove(name)  # never descend into either
+            if name in _LINK and here.is_dir() and not os.path.lexists(here / name):
+                os.symlink(Path(dirpath) / name, here / name)
     if mutant is not None:
         target = dest / mutant.file
         dest_real = dest.resolve()
