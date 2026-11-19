@@ -122,7 +122,10 @@ class ShelfieSubstitutionAdapter:
             doc = json.loads(out_json.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             return SuiteRun(ok=False, error=f"result is not JSON: {exc}")
-        return parse_shelfie_result(doc, res.returncode)
+        try:
+            return parse_shelfie_result(doc, res.returncode)
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            return SuiteRun(ok=False, error=f"result has an unexpected shape: {exc}")
 
 
 def parse_shelfie_result(doc: Dict[str, Any], returncode: int = 0) -> SuiteRun:

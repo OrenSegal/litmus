@@ -103,16 +103,37 @@ class ManifestError(ValueError):
 
 
 def load_manifest(path: Path) -> List[Mutant]:
-    doc = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ManifestError(f"{path}: {exc.strerror or exc}") from exc
+    except ValueError as exc:  # not JSON, or not UTF-8
+        raise ManifestError(f"{path}: {exc}") from exc
+    if not isinstance(doc, dict):
+        raise ManifestError(f"{path}: not a mutants manifest (expected a JSON object)")
     if doc.get("schema") != MANIFEST_SCHEMA:
         raise ManifestError(f"{path}: schema is {doc.get('schema')!r}, expected {MANIFEST_SCHEMA!r}")
+    entries = doc.get("mutants", [])
+    if not isinstance(entries, list):
+        raise ManifestError(f"{path}: `mutants` is not a list")
     out = []
-    for i, m in enumerate(doc.get("mutants", [])):
+    for i, m in enumerate(entries):
+        if not isinstance(m, dict):
+            raise ManifestError(f"{path}: mutant {i} is not an object")
+        for key in ("id", "operator", "file", "original_sha256", "patched"):
+            if key not in m:
+                raise ManifestError(f"{path}: mutant {i} is missing {key!r}")
+            if not isinstance(m[key], str):
+                raise ManifestError(f"{path}: mutant {i} field {key!r} is not a string")
+        generator = m.get("generator") or {"kind": "deterministic"}
+        if not isinstance(generator, dict):
+            raise ManifestError(f"{path}: mutant {i} field 'generator' is not an object")
         try:
-            mut = Mutant(m["id"], m["operator"], m["file"], int(m.get("site", 0)), m.get("description", ""),
-                         m["original_sha256"], m["patched"], m.get("generator") or {"kind": "deterministic"})
-        except KeyError as exc:
-            raise ManifestError(f"{path}: mutant {i} is missing {exc}") from exc
+            site = int(m.get("site", 0))
+        except (TypeError, ValueError) as exc:
+            raise ManifestError(f"{path}: mutant {i} field 'site' is not a number") from exc
+        mut = Mutant(m["id"], m["operator"], m["file"], site, str(m.get("description", "")),
+                     m["original_sha256"], m["patched"], generator)
         if "patched_sha256" in m and m["patched_sha256"] != sha256(mut.patched):
             raise ManifestError(f"{path}: mutant {mut.id} patched content does not match its patched_sha256")
         if Path(mut.file).is_absolute() or ".." in Path(mut.file).parts:

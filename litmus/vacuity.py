@@ -69,13 +69,21 @@ class CaseFinding:
         return dict(self.__dict__)
 
 
+def _int(v: Any) -> Optional[int]:
+    """`v` as an int, or None when it is absent or not a number."""
+    try:
+        return None if v is None else int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _is_guard(g: Grader) -> bool:
     c = g.config
     if g.type == "regex":
         m = str(c.get("match") or "contains")
         return m == "not_contains" or m == "count:0"
     if g.type == "tool_used":
-        return c.get("max") is not None and int(c["max"]) == 0
+        return _int(c.get("max")) == 0
     if g.type == "file_exists":
         return c.get("exists") is False
     return False
@@ -101,9 +109,10 @@ def _static(g: Grader) -> Optional[tuple]:
         if empty and match in ("not_contains", "count:0"):
             return ("ALWAYS_FAILS", "pattern matches the empty string, so absence can never hold")
     if g.type == "tool_used":
-        lo = c.get("min", 1)
-        lo = 1 if lo is None else int(lo)
+        lo = 1 if c.get("min") is None else _int(c.get("min"))
         hi = c.get("max")
+        if lo is None or (hi is not None and _int(hi) is None):
+            return None  # a bound that is not a number: nothing is proven, the probes report UNKNOWN
         if lo <= 0 and hi is None:
             return ("VACUOUS", "min: 0 with no max accepts any number of calls, including none")
         if hi is not None and lo > int(hi):

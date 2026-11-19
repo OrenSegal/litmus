@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Malformed input is exit 2 with a `litmus: error:` line, not a traceback
+  (which exits 1, the code for "the suite failed the bar"): `litmus audit` on
+  JSON that is not an object, is not UTF-8, or has `schemaVersion: 1` and the
+  wrong shape; `--mutants` naming a missing, non-JSON or misshapen manifest.
+- A grader config value litmus cannot read (`match: count:x`, `min: lots`)
+  makes that grader UNKNOWN with the reason, instead of crashing `vacuity`
+  and `mutate`. `vacuity` now prints UNKNOWN deterministic graders.
+- A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
+  not a crash in the middle of a paid run.
+
 ## 0.3.0
 
 litmus is now a mutation tester for eval suites ("Can your eval fail?"). The

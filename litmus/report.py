@@ -8,6 +8,11 @@ from typing import Any, Dict, List
 __all__ = ["text_vacuity", "text_mutation", "text_audit", "html_report"]
 
 
+# Graders litmus evaluates itself. UNKNOWN on one of these means litmus could not
+# read it (an untranslatable regex, a bad config value), so the text says so.
+_DETERMINISTIC = ("regex", "tool_used", "tool_order", "file_exists")
+
+
 def _pct(x: Any) -> str:
     return "n/a" if x is None else f"{x * 100:.0f}%"
 
@@ -19,6 +24,8 @@ def text_vacuity(v: Dict[str, Any]) -> List[str]:
     for g in v["graders"]:
         if g["status"] in ("VACUOUS", "ALWAYS_FAILS") or (g["status"] == "NULL_PASS" and not g["guard"]):
             out.append(f"  {g['status']:<13} {g['case']}/{g['grader']} ({g['type']}): {g['reason']}")
+        elif g["status"] == "UNKNOWN" and g["type"] in _DETERMINISTIC and g["reason"]:
+            out.append(f"  {'UNKNOWN':<13} {g['case']}/{g['grader']} ({g['type']}): {g['reason']}")
         elif g["weak_rubric"]:
             out.append(f"  {'WEAK_RUBRIC':<13} {g['case']}/{g['grader']}: rubric never says what FAILs (heuristic)")
     for cf in v["cases"]:

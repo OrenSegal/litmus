@@ -73,11 +73,15 @@ def cmd_audit(args: argparse.Namespace) -> int:
         p = Path(f)
         try:
             doc = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, ValueError) as exc:  # ValueError: not JSON, or not UTF-8
             return _err(f"{p}: {exc}")
-        if doc.get("schemaVersion") != 1:
+        if not isinstance(doc, dict) or doc.get("schemaVersion") != 1:
             return _err(f"{p}: not a claude plugin eval aggregate-result.json (schemaVersion 1)")
-        a = audit_result(doc, str(p))
+        try:
+            a = audit_result(doc, str(p))
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            # schemaVersion 1 but not the documented shape: unreadable (exit 2), not a finding.
+            return _err(f"{p}: aggregate-result.json has an unexpected shape ({exc})")
         reports.append(a)
         if a["counts"]["unexpected_findings"]:
             worst = EXIT_FAIL

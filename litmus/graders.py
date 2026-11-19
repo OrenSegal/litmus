@@ -164,8 +164,8 @@ def _tool_used(g: Grader, run: ProbeRun) -> GraderResult:
     if hits is None:
         return GraderResult(Outcome.UNKNOWN, "input_match does not translate to a Python regex")
     lo = int(cfg.get("min", 1) if cfg.get("min") is not None else 1)
-    hi = cfg.get("max")
-    ok = len(hits) >= lo and (hi is None or len(hits) <= int(hi))
+    hi = None if cfg.get("max") is None else int(cfg["max"])  # read both bounds before judging either
+    ok = len(hits) >= lo and (hi is None or len(hits) <= hi)
     return GraderResult(Outcome.PASS if ok else Outcome.FAIL, f"{len(hits)} matching call(s), need {lo}..{hi}")
 
 
@@ -199,4 +199,11 @@ def evaluate(g: Grader, run: ProbeRun) -> GraderResult:
     fn = _EVAL.get(g.type)
     if fn is None:
         return GraderResult(Outcome.UNKNOWN, f"{g.type} grader needs a judge model")
-    return fn(g, run)
+    try:
+        return fn(g, run)
+    except RegexTimeout:
+        return GraderResult(Outcome.UNKNOWN, "regex timed out")
+    except (TypeError, ValueError) as exc:
+        # A config value litmus cannot read (`match: count:x`, `min: lots`).
+        # Not evaluated means UNKNOWN, never PASS and never a crash.
+        return GraderResult(Outcome.UNKNOWN, f"cannot read the grader's config: {exc}")
