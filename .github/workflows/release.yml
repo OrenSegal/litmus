@@ -1,6 +1,6 @@
 name: release
 # Build the sdist and wheel for a version tag and attach them to a GitHub
-# Release. Nothing is published to PyPI or npm from here.
+# Release. PyPI publishing is publish.yml; nothing goes to npm.
 on:
   push:
     tags: ["v*"]

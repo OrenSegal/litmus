@@ -1,0 +1,38 @@
+name: publish
+# Publish the sdist and wheel for a version tag to PyPI as litmus-ci, through
+# PyPI trusted publishing (no token stored here). PyPI must list this repo,
+# this workflow file (publish.yml) and the environment "pypi" as a trusted
+# publisher first; until then this job fails and release.yml is unaffected.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/litmus-ci
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Tag matches the package version
+        run: |
+          version="$(python -c 'import litmus; print(litmus.__version__)')"
+          test "${GITHUB_REF_NAME#v}" = "$version" || { echo "tag $GITHUB_REF_NAME does not match litmus.__version__ $version"; exit 1; }
+      - name: Tests
+        run: python -m unittest discover -s tests -t .
+      - name: Build
+        run: |
+          python -m pip install "build>=1" "twine>=5"
+          python -m build
+          twine check dist/*
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
