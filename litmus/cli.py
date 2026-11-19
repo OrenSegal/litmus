@@ -177,7 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--yes", action="store_true", help="confirm a real (paid) run")
     m.add_argument("--replay-results", help="directory of recorded result JSON per label (offline demo/tests)")
     m.add_argument("--out", help="output directory (default .litmus/<timestamp>)")
-    m.add_argument("--keep", action="store_true", help="keep mutant working copies")
+    m.add_argument("--keep", action="store_true", help="keep the snapshot and each run's working copy; their paths are printed")
     m.add_argument("--allow-vacuous", action="store_true", help="do not fail on vacuity findings")
     m.add_argument("--quiet", action="store_true")
     m.set_defaults(fn=cmd_mutate)

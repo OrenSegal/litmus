@@ -42,6 +42,8 @@
 - A pattern in Python-only regex syntax (`(?i)x`, `(?P<n>x)`, `a++`, `\A`)
   is UNKNOWN: JavaScript rejects it or reads it differently, and litmus
   graded it as if the runner would accept it.
+- `--keep` prints where the snapshot and each working copy were kept; it
+  used to leave them in the system temp directory without naming them.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 

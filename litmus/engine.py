@@ -54,10 +54,12 @@ class MutateOptions:
 
 
 def _run_once(adapter: Adapter, suite: Any, source: Path, mutant: Optional[Mutant], out_dir: Path, label: str,
-              keep: bool) -> SuiteRun:
+              keep: bool, log: Callable[[str], None] = lambda s: None) -> SuiteRun:
     work = Path(tempfile.mkdtemp(prefix="litmus-"))
     try:
         ws = materialize(source, work / suite.root.name, mutant, adapter.results_rel(suite))
+        if keep:
+            log(f"    kept: {ws}")
         return adapter.run(ws, suite, out_dir, label)
     finally:
         if not keep:
@@ -131,6 +133,8 @@ def mutate(adapter: Adapter, target: Path, out_dir: Path, opts: MutateOptions,
     snap_dir = Path(tempfile.mkdtemp(prefix="litmus-snapshot-"))
     try:
         snapshot = materialize(suite.root, snap_dir / suite.root.name, None, adapter.results_rel(suite))
+        if opts.keep_workdirs:
+            log(f"snapshot kept: {snapshot}")
 
         # Diffs come from the snapshot too, so each one describes the mutant that ran.
         def snap_originals(m: Mutant) -> str:
@@ -160,7 +164,8 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
     bases = []
     for k in range(opts.baseline_runs):  # repeats: a case that is not green every time cannot show a kill
         label = "baseline" if k == 0 else f"baseline-{k + 1}"
-        bases.append(_run_once(adapter, suite, snapshot, None, out_dir / "runs" / label, label, opts.keep_workdirs))
+        bases.append(_run_once(adapter, suite, snapshot, None, out_dir / "runs" / label, label, opts.keep_workdirs,
+                               log))
         if not bases[-1].ok:
             break
     base = next((b for b in bases if not b.ok), bases[0])
@@ -205,7 +210,8 @@ def _run_all(adapter: Adapter, suite: Any, snapshot: Path, mutants: List[Mutant]
             continue
         log(f"[{i}/{len(mutants)}] {m.id}")
         try:
-            run = _run_once(adapter, suite, snapshot, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs)
+            run = _run_once(adapter, suite, snapshot, m, out_dir / "runs" / _safe(m.id), m.id, opts.keep_workdirs,
+                            log)
         except UnsafeMutantPath as exc:
             r.verdict, r.reason = Verdict.INCONCLUSIVE, f"unsafe mutant: {exc}"
             results.append(r)

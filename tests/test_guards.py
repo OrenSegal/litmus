@@ -7,7 +7,9 @@ they existed that change left the whole suite green.
 from __future__ import annotations
 
 import json
+import shutil
 import unittest
+from pathlib import Path
 from typing import List
 
 from litmus.adapters.claude_plugin_eval import ClaudePluginEvalAdapter, parse_result
@@ -73,6 +75,28 @@ class TestEngineSpendGuards(unittest.TestCase):
                          MutateOptions(max_mutants=4, baseline_runs=2))
             self.assertEqual(rep["baseline"]["red_cases"], ["tests-only-diff"])
             self.assertNotIn("KILLED", {m["verdict"] for m in rep["mutants"]})
+
+
+class TestKeep(unittest.TestCase):
+    def test_keep_says_where_the_working_copies_are(self):
+        # --keep left the copies in the system temp directory and never named it.
+        with TempDir() as d:
+            logs: List[str] = []
+            mutate(ClaudePluginEvalAdapter(FakeRunner(demo_scores)), DEMO, d,
+                   MutateOptions(max_mutants=1, keep_workdirs=True), logs.append)
+            kept = [Path(ln.split("kept: ", 1)[1]) for ln in logs if "kept: " in ln]
+            try:
+                self.assertEqual(len(kept), 3, logs)  # the snapshot, the baseline copy, one mutant copy
+                self.assertTrue(all((k / "skills/changelog/SKILL.md").is_file() for k in kept), kept)
+            finally:
+                for k in kept:
+                    shutil.rmtree(k.parent, ignore_errors=True)
+
+    def test_without_keep_nothing_is_announced(self):
+        with TempDir() as d:
+            logs: List[str] = []
+            mutate(ClaudePluginEvalAdapter(FakeRunner(demo_scores)), DEMO, d, MutateOptions(max_mutants=1), logs.append)
+            self.assertFalse([ln for ln in logs if "kept: " in ln])
 
 
 class TestSubjectAndGate(unittest.TestCase):
