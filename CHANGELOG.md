@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `publish.yml` uploads a tagged release to PyPI as `litmus-ci` through
+  trusted publishing.
+- README: Claude Code plugin install commands. The skill says how to install
+  the engine when `litmus` is missing.
+
 ## 0.3.0
 
 litmus is now a mutation tester for eval suites ("Can your eval fail?"). The

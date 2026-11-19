@@ -45,7 +45,10 @@ CI runs all of these on Python 3.10 to 3.13.
 
 Tag `vX.Y.Z` on `main`. The release workflow checks the tag against
 `litmus.__version__`, runs the tests, builds the sdist and wheel, and attaches them to a
-GitHub Release. Nothing is published to PyPI or npm automatically.
+GitHub Release. The same tag runs the publish workflow, which uploads them to
+PyPI as `litmus-ci` through trusted publishing once a maintainer has
+registered `publish.yml` and the `pypi` environment as the trusted publisher
+on pypi.org. Nothing is published to npm automatically.
 
 ## Security
 

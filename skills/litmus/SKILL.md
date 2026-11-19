@@ -17,6 +17,9 @@ metadata:
 litmus mutation-tests eval suites. It breaks the skill on purpose and checks
 that the evals go red. It runs through the `litmus` command (on PATH inside
 Claude Code when this plugin is enabled, or `python3 -m litmus.cli`).
+If neither works, the engine is not installed: ask the user to run
+`pip install git+https://github.com/OrenSegal/litmus` (Python 3.10+, no
+dependencies).
 
 Start with the free checks. They never call a model:
 

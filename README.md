@@ -109,6 +109,14 @@ litmus mutate . --dry-run                  # free: list the mutants and the cost
 litmus mutate . --max-mutants 10 --runs 1 --max-cost-usd 5 --yes   # real run
 ```
 
+In Claude Code, install it as a plugin instead; `litmus` is then on the Bash
+tool's PATH and `/litmus:mutate` runs the free checks and a dry run:
+
+```bash
+claude plugin marketplace add OrenSegal/litmus
+claude plugin install litmus@litmus
+```
+
 A real run calls `claude plugin eval` once for the baseline and once per
 mutant, each against a temp copy of the plugin, on your Claude Code
 credential. That is why it needs `--yes`. Pass the same `--allow-tools`,
