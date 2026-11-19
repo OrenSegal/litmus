@@ -236,6 +236,13 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("--yes", err)
 
+    def test_no_test_can_start_a_real_run(self):
+        # tests/__init__.py replaces the adapters' default runner. Without it,
+        # this is `claude plugin eval` on the credential of whoever runs the tests.
+        with TempDir() as d:
+            with self.assertRaisesRegex(AssertionError, "real command"):
+                mutate(ClaudePluginEvalAdapter(), DEMO, d / "out", MutateOptions(max_mutants=1))
+
     def test_dry_run_exit_codes(self):
         with TempDir() as d:
             code, out, _ = cli("mutate", str(DEMO), "--dry-run", "--out", str(d))
