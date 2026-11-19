@@ -68,15 +68,23 @@ def _mini(text: str) -> Dict[str, Any]:
         if not m:
             raise FrontmatterError(f"cannot parse line: {raw!r}")
         key, rest = m.group(1), (m.group(2) or "").strip()
+        if rest.startswith("#"):
+            rest = ""  # `key: # comment`: the value is on the following lines, or null
         i += 1
         if rest:
             out[key] = _scalar_or_flow(rest)
             continue
         block: List[str] = []
+        indents = set()
         while i < len(lines) and (not lines[i].strip() or lines[i][0] in " \t"):
-            if lines[i].strip():
+            if lines[i].strip() and not lines[i].lstrip().startswith("#"):
                 block.append(lines[i].strip())
+                indents.add(len(lines[i]) - len(lines[i].lstrip()))
             i += 1
+        if len(indents) > 1:
+            # Two indentation depths under one key: a nested map or a folded value.
+            # Reading it as one flat level would silently change what it means.
+            raise FrontmatterError(f"{key!r} is nested deeper than one level (install PyYAML to read it)")
         if not block:
             out[key] = None
         elif all(b.startswith("- ") or b == "-" for b in block):
@@ -93,17 +101,36 @@ def _mini(text: str) -> Dict[str, Any]:
 
 
 def _scalar_or_flow(s: str) -> Any:
-    if s.startswith("[") and s.endswith("]"):
-        return [_scalar_or_flow(p) for p in _split_flow(s[1:-1])]
-    if s.startswith("{") and s.endswith("}"):
+    if s[:1] in ("[", "{"):
+        s = _strip_comment(s)
+        close = "]" if s[0] == "[" else "}"
+        if not s.endswith(close):
+            raise FrontmatterError(f"flow collection is not closed on its line: {s!r}")
+        if close == "]":
+            return [_scalar_or_flow(p) for p in _split_flow(s[1:-1])]
         d: Dict[str, Any] = {}
         for part in _split_flow(s[1:-1]):
             k, sep, v = part.partition(":")
             if not sep:
                 raise FrontmatterError(f"bad flow map entry: {part!r}")
-            d[k.strip()] = _scalar_or_flow(v.strip())
+            k = k.strip()
+            d[str(_scalar(k)) if k[:1] in ("'", '"') else k] = _scalar_or_flow(v.strip())
         return d
     return _scalar(s)
+
+
+def _strip_comment(s: str) -> str:
+    """Drop a trailing ` # comment` that is outside quotes."""
+    quote = ""
+    for i, ch in enumerate(s):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and (i == 0 or s[i - 1] in " \t"):
+            return s[:i].rstrip()
+    return s
 
 
 def _split_flow(s: str) -> List[str]:
@@ -131,25 +158,61 @@ def _split_flow(s: str) -> List[str]:
     return parts
 
 
+_INT = [(re.compile(r"[-+]?(?:0|[1-9][0-9_]*)$"), 10), (re.compile(r"[-+]?0[0-7_]+$"), 8),
+        (re.compile(r"[-+]?0x[0-9a-fA-F_]+$"), 16), (re.compile(r"[-+]?0b[01_]+$"), 2)]
+_FLOAT = re.compile(r"(?:[-+]?[0-9][0-9_]*\.[0-9_]*|\.[0-9][0-9_]*)(?:[eE][-+][0-9]+)?$")
+_SEXAGESIMAL = re.compile(r"[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+(?:\.[0-9_]*)?$")
+_TRUE = {"yes", "Yes", "YES", "true", "True", "TRUE", "on", "On", "ON"}
+_FALSE = {"no", "No", "NO", "false", "False", "FALSE", "off", "Off", "OFF"}
+_NULL = {"", "~", "null", "Null", "NULL"}
+
+
+def _quoted(s: str) -> str:
+    """The value of a scalar that opens with a quote. Only a comment may follow it."""
+    q, i = s[0], 1
+    while i < len(s):
+        if q == '"' and s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == q:
+            if q == "'" and s[i + 1:i + 2] == "'":  # '' is an escaped quote
+                i += 2
+                continue
+            rest = s[i + 1:].strip()
+            if rest and not rest.startswith("#"):
+                raise FrontmatterError(f"unexpected text after the closing quote: {s!r}")
+            inner = s[1:i]
+            return inner.replace("''", "'") if q == "'" else _unescape_double(inner)
+        i += 1
+    raise FrontmatterError(f"quoted string is never closed: {s!r}")
+
+
 def _scalar(s: str) -> Any:
-    if len(s) >= 2 and s[0] == s[-1] == "'":
-        return s[1:-1].replace("''", "'")
-    if len(s) >= 2 and s[0] == s[-1] == '"':
-        return _unescape_double(s[1:-1])
-    if " #" in s:
-        s = s.split(" #", 1)[0].rstrip()
-    low = s.lower()
-    if low in ("true", "yes"):
+    """One scalar, read as PyYAML reads it; FrontmatterError where the two would differ."""
+    if s[:1] in ("'", '"'):
+        return _quoted(s)
+    s = _strip_comment(s)
+    if s in _TRUE:
         return True
-    if low in ("false", "no"):
+    if s in _FALSE:
         return False
-    if low in ("null", "~", ""):
+    if s in _NULL:
         return None
-    for conv in (int, float):
-        try:
-            return conv(s)
-        except ValueError:
-            pass
+    if s[0] in "&*!|>@%`" or re.search(r":(?:\s|$)", s) or _SEXAGESIMAL.match(s):
+        # anchors, tags, block scalars, a nested `key: value`, base-60 numbers
+        raise FrontmatterError(f"cannot parse value: {s!r} (quote it, or install PyYAML)")
+    for rx, base in _INT:
+        if rx.match(s):
+            digits = s.replace("_", "")
+            return int(digits, base) if base == 10 else int(digits.replace("0x", "").replace("0b", ""), base)
+    if _FLOAT.match(s):
+        return float(s.replace("_", ""))
+    if s in (".inf", ".Inf", ".INF", "+.inf", "+.Inf", "+.INF"):
+        return float("inf")
+    if s in ("-.inf", "-.Inf", "-.INF"):
+        return float("-inf")
+    if s in (".nan", ".NaN", ".NAN"):
+        return float("nan")
     return s
 
 

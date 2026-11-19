@@ -51,6 +51,71 @@ class TestFrontmatter(unittest.TestCase):
             _mini("  indented: first\n")
         with self.assertRaises(FrontmatterError):
             _mini("not a key line\n")
+        # Two levels of nesting used to be flattened into one map without a word.
+        with self.assertRaises(FrontmatterError):
+            _mini("metadata:\n  openclaw:\n    homepage: https://example.com\n")
+        self.assertEqual(_mini("context:\n  # a comment\n  a: 1\n  b: 2\n"), {"context": {"a": 1, "b": 2}})
+
+    # What the fallback parser returns must be what PyYAML returns, or an error:
+    # the same grader file must not mean two things depending on whether PyYAML
+    # happens to be installed.
+    SAME_AS_YAML = {
+        'pattern: "TODO" # no todos': {"pattern": "TODO"},
+        "pattern: 'a #b' # c": {"pattern": "a #b"},
+        "pattern: 'it''s'   ": {"pattern": "it's"},
+        'target: {"source": file, path: "o.md"}': {"target": {"source": "file", "path": "o.md"}},
+        "pattern: 1e3": {"pattern": "1e3"},
+        "pattern: nan": {"pattern": "nan"},
+        "pattern: Infinity": {"pattern": "Infinity"},
+        "min: 010": {"min": 8},
+        "min: 0x1F": {"min": 31},
+        "min: 1_000": {"min": 1000},
+        "min: -3": {"min": -3},
+        "weight: 0.5": {"weight": 0.5},
+        "weight: 2.": {"weight": 2.0},
+        "weight: 1.5e+3": {"weight": 1500.0},
+        "scored: off": {"scored": False},
+        "scored: On": {"scored": True},
+        "version: 1.2.3": {"version": "1.2.3"},
+        'x: "a"#b': {"x": "a"},
+        "x: a#b": {"x": "a#b"},
+        "x: [a, 'b, c'] # d": {"x": ["a", "b, c"]},
+        "x: {a: 1} # c": {"x": {"a": 1}},
+        "k: # c": {"k": None},
+        "x: 08": {"x": "08"},
+        "x: 0o17": {"x": "0o17"},
+        "x: -0x1f": {"x": -31},
+        "x: 0b11": {"x": 3},
+        "x: +1": {"x": 1},
+        "x: .5": {"x": 0.5},
+        "x: True": {"x": True},
+        "x: NO": {"x": False},
+        "x: tRUE": {"x": "tRUE"},
+        "x: Null": {"x": None},
+    }
+    NOT_YAML = ('x: "abc', "x: 'abc", 'x: "a" b', "pattern: a: b", "x: foo:", "x: *a", "x: @a", "x: %a", "x: [a, b")
+    # Valid YAML the fallback does not implement: an error, never a guess.
+    NOT_IMPLEMENTED = ("x: |", "x: >-", "x: &a b", "x: 1:30")
+
+    def test_mini_parser_reads_scalars_as_yaml_does(self):
+        for text, want in self.SAME_AS_YAML.items():
+            self.assertEqual(_mini(text), want, text)
+
+    def test_mini_parser_refuses_scalars_yaml_refuses(self):
+        for text in self.NOT_YAML + self.NOT_IMPLEMENTED:
+            with self.assertRaises(FrontmatterError, msg=text):
+                _mini(text)
+
+    def test_the_expectations_above_are_what_pyyaml_does(self):
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("PyYAML not installed")
+        for text, want in self.SAME_AS_YAML.items():
+            self.assertEqual(yaml.safe_load(text), want, text)
+        for text in self.NOT_YAML:
+            with self.assertRaises(yaml.YAMLError, msg=text):
+                yaml.safe_load(text)
 
 
 class TestGraders(unittest.TestCase):

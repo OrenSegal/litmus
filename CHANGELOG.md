@@ -18,6 +18,11 @@
 - `shelfie-substitution`: with a reused `--out`, a run that wrote no result
   no longer reads the previous run's `result.json` as its own (the
   `claude-plugin-eval` adapter already removed it first).
+- The fallback frontmatter parser (used when PyYAML is not installed) now
+  reads every value as PyYAML does or raises: `pattern: "TODO" # note` kept
+  the quotes in the pattern, `[a, b] # note` became a string, `1e3`, `nan`
+  and `08` became numbers, `off` stayed a string, an unclosed quote was
+  accepted, and a map nested two levels deep was flattened silently.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 
