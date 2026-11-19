@@ -67,6 +67,9 @@ def js_regex(pattern: str, flags: str = "") -> Tuple[str, int]:
         if f not in _JS_FLAGS:
             raise UntranslatableRegex(f"unknown JS regex flag {f!r}")
         py_flags |= _JS_FLAGS[f]
+    why = _not_javascript(pattern)
+    if why:
+        raise UntranslatableRegex(f"not a JavaScript regex: {why}")
     p = re.sub(r"\(\?<(?![=!])", "(?P<", pattern)
     p = re.sub(r"\\k<(\w+)>", r"(?P=\1)", p)
     p = p.replace("[^]", r"[\s\S]")
@@ -77,6 +80,52 @@ def js_regex(pattern: str, flags: str = "") -> Tuple[str, int]:
     except re.error as exc:
         raise UntranslatableRegex(f"does not compile as a Python regex: {exc}") from exc
     return p, py_flags
+
+
+_QUANTIFIER = re.compile(r"\{\d+(?:,\d*)?\}")
+
+
+def _not_javascript(pattern: str) -> Optional[str]:
+    """Why Python would accept `pattern` with a meaning JavaScript does not give it, or None.
+
+    Python compiles inline flags, `(?P<name>`, comments, atomic groups and
+    possessive quantifiers; JavaScript throws on each. `\\A`, `\\Z` and `{,n}`
+    are anchors and a quantifier in Python, literal text in JavaScript.
+    """
+    i, in_class, quantified = 0, False, False
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "\\":
+            if not in_class and pattern[i + 1:i + 2] in ("A", "Z"):
+                return f"\\{pattern[i + 1]} is a literal letter in JavaScript"
+            i, quantified = i + 2, False
+            continue
+        if in_class:
+            in_class = ch != "]"
+            i += 1
+            continue
+        if ch == "[":
+            in_class, quantified = True, False
+        elif ch == "(" and pattern[i + 1:i + 2] == "?":
+            if pattern[i + 2:i + 3] not in (":", "=", "!", "<"):
+                return f"group syntax (?{pattern[i + 2:i + 3]} is Python's"
+            quantified = False
+        elif ch == "{":
+            m = _QUANTIFIER.match(pattern, i)
+            if m:
+                i, quantified = m.end(), True
+                continue
+            if re.match(r"\{,\d+\}", pattern[i:]):
+                return "{,n} is literal text in JavaScript and a quantifier in Python"
+            quantified = False
+        elif ch == "+" and quantified:
+            return "possessive quantifier"
+        elif ch == "?" and quantified:
+            quantified = False  # lazy: a+? a{2}?
+        else:
+            quantified = ch in "*+?"
+        i += 1
+    return None
 
 
 def _json(obj: Any) -> str:

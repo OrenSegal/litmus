@@ -86,7 +86,8 @@ litmus re-implements the four deterministic grader types (`regex`,
 probes. Patterns are JavaScript regexes; litmus translates named groups,
 backreferences, `[^]` and flags, and treats `\d`, `\w`, `\b` as ASCII, as
 JavaScript does with or without the `u` flag. A pattern it cannot translate
-(the sticky flag `y`, a Unicode property escape) makes the grader UNKNOWN. So
+(the sticky flag `y`, a Unicode property escape, or syntax Python accepts and
+JavaScript does not, such as `(?i)`, `(?P<name>`, `a++`, `\A`) makes the grader UNKNOWN. So
 does a pattern or probe text outside ASCII on which Python's ASCII and Unicode
 modes give different answers: JavaScript's `\s` and case-insensitive matching
 are Unicode-aware while its `\d` and `\w` are not, so neither answer is safe.

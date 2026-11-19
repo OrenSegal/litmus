@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import unittest
 
-from litmus.graders import Outcome, ProbeRun, evaluate
+from litmus.graders import Outcome, ProbeRun, UntranslatableRegex, evaluate, js_regex
 from litmus.models import Grader
 
 
@@ -41,6 +41,20 @@ class TestJsRegexSemantics(unittest.TestCase):
         # node: /b/y.test("ab") is false (sticky anchors at index 0); a plain search says true.
         g = Grader("g", "regex", config={"pattern": "b", "flags": "y"})
         self.assertIs(evaluate(g, ProbeRun(prompt="", last_message="ab")).outcome, Outcome.UNKNOWN)
+
+    def test_python_only_syntax_is_not_graded_as_if_javascript_accepted_it(self):
+        # Each of these is a SyntaxError in node, or (\\A, \\Z) a literal letter there, and compiles in Python.
+        for pattern in ("(?i)foo", "(?P<n>a)", "a++", "a*+", "a?+", "a{2}+", "(?>a)", "(?#c)a", "(?i:foo)",
+                        r"\Afoo", r"foo\Z", "a{,2}"):  # {,2}: literal text in JavaScript, a quantifier in Python
+            with self.assertRaises(UntranslatableRegex, msg=pattern):
+                js_regex(pattern)
+            g = Grader("g", "regex", config={"pattern": pattern})
+            self.assertIs(evaluate(g, ProbeRun(prompt="", last_message="foo aa")).outcome, Outcome.UNKNOWN, pattern)
+
+    def test_valid_javascript_that_looks_similar_still_translates(self):
+        for pattern in ("[*+] item", "[-*+]+ x", r"a\++", r"(?<n>a)\k<n>", "x(?=y)", "x(?!y)", "(?<=a)b", "(?<!a)b",
+                        "(?:a|b)+?", "a{2,}?", "a+?", "a??", "[^]x", r"[\]+]+", "x}+"):
+            js_regex(pattern)  # does not raise
 
 
 if __name__ == "__main__":

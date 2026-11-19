@@ -39,6 +39,9 @@
 - Mutant copies link `node_modules`, `.venv` and `venv` at any depth. Only
   the ones at the plugin root were linked; nested ones were left out of the
   copy, so a plugin with a package in a subfolder could not run there.
+- A pattern in Python-only regex syntax (`(?i)x`, `(?P<n>x)`, `a++`, `\A`)
+  is UNKNOWN: JavaScript rejects it or reads it differently, and litmus
+  graded it as if the runner would accept it.
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 
