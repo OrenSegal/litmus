@@ -15,6 +15,9 @@
   no file, a plugin with no skill, agent or command prose, an empty manifest)
   exits 2 before the baseline runs. It used to pay for the baseline, print
   `mutation score: n/a` and exit 1.
+- `shelfie-substitution`: with a reused `--out`, a run that wrote no result
+  no longer reads the previous run's `result.json` as its own (the
+  `claude-plugin-eval` adapter already removed it first).
 - A runner result of an unexpected shape is an untrusted run (INCONCLUSIVE),
   not a crash in the middle of a paid run.
 

@@ -128,6 +128,19 @@ class TestShelfieResult(unittest.TestCase):
             self.assertFalse(run.ok)
             self.assertIn("no creds", run.error or "")
 
+    def test_a_reused_out_dir_does_not_answer_for_a_run_that_wrote_nothing(self):
+        # Same guard as the claude-plugin-eval adapter: with a reused --out, last
+        # time's result.json must not be read as this run's (a green stale file
+        # would make a crashed mutant run SURVIVED, a red one KILLED).
+        with TempDir() as d:
+            root = make_shelfie(d / "shelfie")
+            (d / "out").mkdir()
+            (d / "out" / "result.json").write_text(json.dumps(live_doc([detail("sub_a", 0.0), detail("sub_b", 0.0)])))
+            a = ShelfieSubstitutionAdapter(lambda argv, cwd, timeout, label, env=None: CommandResult(1, "", "no creds"))
+            run = a.run(root, a.load_suite(root), d / "out", "manual:x:0")
+            self.assertFalse(run.ok)
+            self.assertIn("no result written", run.error or "")
+
 
 class TestShelfieMutate(unittest.TestCase):
     def test_manifest_mutant_of_the_template_is_killed_and_one_that_misses_survives(self):

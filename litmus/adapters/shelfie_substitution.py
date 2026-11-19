@@ -111,6 +111,7 @@ class ShelfieSubstitutionAdapter:
     def run(self, workdir: Path, suite: Suite, out_dir: Path, label: str) -> SuiteRun:
         out_dir.mkdir(parents=True, exist_ok=True)
         out_json = out_dir.resolve() / "result.json"
+        out_json.unlink(missing_ok=True)  # a reused --out must not answer for a run that wrote nothing
         res = self.runner(self.command(workdir, out_json), out_dir, self.timeout, label, None)
         (out_dir / "stderr.txt").write_text(res.stderr or "", encoding="utf-8")
         # Exit 1 is normal: `--live` also runs the scan-recognition gate, which
