@@ -3,7 +3,8 @@
 ## Unreleased
 
 - `publish.yml` uploads a tagged release to PyPI as `litmus-ci` through
-  trusted publishing.
+  trusted publishing. It can also be run by hand against an existing tag
+  (such as v0.3.0) and refuses a branch.
 - README: Claude Code plugin install commands. The skill says how to install
   the engine when `litmus` is missing.
 
