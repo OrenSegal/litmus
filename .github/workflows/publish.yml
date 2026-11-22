@@ -3,9 +3,12 @@ name: publish
 # PyPI trusted publishing (no token stored here). PyPI must list this repo,
 # this workflow file (publish.yml) and the environment "pypi" as a trusted
 # publisher first; until then this job fails and release.yml is unaffected.
+# To publish a tag that already exists (such as v0.3.0), run this workflow by
+# hand from Actions and choose that tag as the ref; a branch is refused.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,6 +29,7 @@ jobs:
           python-version: "3.12"
       - name: Tag matches the package version
         run: |
+          test "$GITHUB_REF_TYPE" = tag || { echo "publish runs from a version tag, not $GITHUB_REF_TYPE $GITHUB_REF_NAME"; exit 1; }
           version="$(python -c 'import litmus; print(litmus.__version__)')"
           test "${GITHUB_REF_NAME#v}" = "$version" || { echo "tag $GITHUB_REF_NAME does not match litmus.__version__ $version"; exit 1; }
       - name: Tests
